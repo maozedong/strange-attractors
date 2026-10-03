@@ -1,0 +1,1232 @@
+/* ------------------------------------------------------------------
+   Strange Attractors — design tokens and UI
+   One family (Fraunces, variable) at every size. No accent colour: the
+   particle field is the only colour on the page. UI is wall text.
+   ------------------------------------------------------------------ */
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/fraunces/full-italic.css';
+
+:root {
+  --bg: #050408;
+  --ink: #efe8dc;
+  --ink-2: rgba(239, 232, 220, 0.64);
+  --ink-3: rgba(239, 232, 220, 0.4);
+  --ink-4: rgba(239, 232, 220, 0.18);
+  --line: rgba(239, 232, 220, 0.14);
+  --twin-a: #9fe3ff;
+  --twin-b: #ffb07a;
+  --panel-w: 480px;
+  --pad: 36px;
+  --font: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --pad: 20px;
+    --panel-w: 100%;
+  }
+}
+
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-variation-settings: 'opsz' 14, 'SOFT' 30, 'WONK' 0;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: rgba(239, 232, 220, 0.25);
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+}
+
+.app canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* Layer above the canvas; children opt back in to pointer events */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay > * {
+  pointer-events: auto;
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px var(--pad) 0;
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  min-width: 0;
+}
+
+.topbar__name {
+  font-size: 15px;
+  letter-spacing: 0.005em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ticks {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.ticks button {
+  display: block;
+  width: 18px;
+  height: 14px;
+  position: relative;
+}
+
+.ticks button::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 1.5px;
+  background: var(--ink-4);
+  transition: background 0.3s var(--ease), transform 0.3s var(--ease);
+}
+
+.ticks button[aria-current='true']::after {
+  background: var(--ink);
+}
+
+.ticks button:hover::after {
+  background: var(--ink-2);
+}
+
+.topbar__controls {
+  display: flex;
+  gap: 22px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.textbtn {
+  font-size: 15px;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
+  transition: color 0.2s var(--ease), text-decoration-color 0.2s var(--ease);
+  font-variant-numeric: tabular-nums;
+}
+
+.textbtn:hover,
+.textbtn[aria-pressed='true'] {
+  color: var(--ink);
+  text-decoration-color: var(--ink-3);
+}
+
+.textbtn--primary {
+  color: var(--ink);
+  text-decoration-color: var(--ink-3);
+}
+
+.textbtn--primary:hover {
+  text-decoration-color: var(--ink);
+}
+
+/* ---------- title screen ---------- */
+.title {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 18px;
+  padding: 0 var(--pad);
+  background: radial-gradient(60% 50% at 50% 55%, rgba(5, 4, 8, 0.55), rgba(5, 4, 8, 0) 70%);
+  animation: rise 1.6s var(--ease) 0.9s both;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: clamp(44px, 8vw, 104px);
+  font-weight: 300;
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
+}
+
+.title p {
+  margin: 0;
+  font-style: italic;
+  font-size: clamp(18px, 2.2vw, 26px);
+  color: var(--ink-2);
+  font-variation-settings: 'opsz' 40, 'SOFT' 50;
+}
+
+.title__begin {
+  margin-top: 28px;
+  justify-self: center;
+  font-size: 18px;
+  padding: 10px 26px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
+}
+
+.title__begin:hover {
+  border-color: var(--ink-3);
+  background: rgba(239, 232, 220, 0.06);
+}
+
+.title__hint {
+  font-size: 14px;
+  color: var(--ink-3);
+  font-style: normal;
+  margin-top: 6px;
+}
+
+.title__hint .textbtn {
+  font-size: 14px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- narrative panel (wall text) ---------- */
+.panel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(var(--panel-w), 100%);
+  padding: 120px var(--pad) 30px;
+  background:
+    linear-gradient(to top, rgba(5, 4, 8, 0.92) 0%, rgba(5, 4, 8, 0.78) 55%, rgba(5, 4, 8, 0) 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* only the text scrolls; the navigation row is always in reach */
+.panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.panel__body::-webkit-scrollbar {
+  display: none;
+}
+
+.panel__chapter {
+  font-size: 14px;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: clamp(30px, 3.4vw, 40px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'opsz' 96, 'SOFT' 60, 'WONK' 1;
+}
+
+.panel p {
+  margin: 0 0 1em;
+  font-size: 16.5px;
+  line-height: 1.52;
+  color: var(--ink);
+  max-width: 42em;
+}
+
+.panel p:last-of-type {
+  margin-bottom: 0;
+}
+
+.panel em {
+  font-style: italic;
+}
+
+.panel__body {
+  animation: fade 0.35s var(--ease) both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel__instrument {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.panel__nav {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 26px;
+  gap: 8px 18px;
+}
+
+.panel__nav .textbtn {
+  font-size: 17px;
+}
+
+.panel__nav .textbtn--primary {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* the next-wing link has a short form for narrow screens */
+.nav__short {
+  display: none;
+}
+
+/* ---------- inline controls inside instruments ---------- */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  align-items: baseline;
+}
+
+.row + .row {
+  margin-top: 12px;
+}
+
+.label {
+  font-size: 14px;
+  color: var(--ink-3);
+}
+
+.readout {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.readout sup {
+  font-size: 0.7em;
+  line-height: 0;
+}
+
+.choice {
+  display: inline-flex;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.choice button {
+  font-size: 14px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+
+.choice button:hover {
+  color: var(--ink);
+}
+
+.choice button[aria-pressed='true'] {
+  background: rgba(239, 232, 220, 0.14);
+  color: var(--ink);
+}
+
+.action {
+  font-size: 16px;
+  padding: 8px 18px;
+  border: 1px solid var(--ink-3);
+  border-radius: 999px;
+  color: var(--ink);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.action:hover {
+  background: rgba(239, 232, 220, 0.08);
+  border-color: var(--ink);
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.toggle input {
+  appearance: none;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-3);
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+
+.toggle input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.toggle input:checked {
+  background: rgba(239, 232, 220, 0.18);
+}
+
+.toggle input:checked::after {
+  transform: translateX(14px);
+  background: var(--ink);
+}
+
+/* ---------- sliders ---------- */
+.slider {
+  display: grid;
+  grid-template-columns: 2.2em 1fr 4.5em;
+  align-items: center;
+  gap: 14px;
+  font-size: 15px;
+}
+
+.slider + .slider {
+  margin-top: 10px;
+}
+
+.slider__sym {
+  color: var(--ink-2);
+  font-style: italic;
+}
+
+.slider__val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  margin: 0;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--ink-4);
+}
+
+input[type='range']::-moz-range-track {
+  height: 1px;
+  background: var(--ink-4);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+  margin-top: -5.5px;
+  box-shadow: 0 0 0 4px var(--bg);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 4px var(--bg);
+}
+
+/* the annotated ρ dial */
+.dial {
+  position: relative;
+}
+
+.dial__track {
+  position: relative;
+  padding-bottom: 40px;
+}
+
+.dial__marks {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 20px;
+  height: 34px;
+  pointer-events: none;
+}
+
+.dial__mark {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: auto;
+  transition: color 0.2s var(--ease);
+}
+
+.dial__mark::before {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 8px;
+  margin: 0 auto 3px;
+  background: var(--ink-4);
+}
+
+.dial__mark--active {
+  color: var(--ink);
+}
+
+.dial__state {
+  margin-top: 0;
+  font-size: 15px;
+  color: var(--ink-2);
+  font-style: italic;
+  min-height: 1.5em;
+}
+
+/* ---------- zoo list ---------- */
+.zoo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.zoo button {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--ink-4);
+  font-size: 14px;
+  white-space: nowrap;
+  color: var(--ink-2);
+  text-align: left;
+  transition: color 0.2s var(--ease);
+}
+
+.zoo button:hover {
+  color: var(--ink);
+}
+
+.zoo button[aria-pressed='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--ink-2);
+}
+
+.zoo button small {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.zoo__blurb {
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.zoo__blurb strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ---------- aside instruments (right side) ---------- */
+.aside {
+  position: absolute;
+  right: var(--pad);
+  bottom: 30px;
+  width: 320px;
+  max-width: calc(100% - 2 * var(--pad));
+  animation: fade 0.4s var(--ease) both;
+}
+
+@media (max-width: 1100px) {
+  .aside {
+    bottom: auto;
+    top: 72px;
+  }
+}
+
+@media (max-width: 760px) {
+  .aside {
+    display: none;
+  }
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chart text {
+  font-family: var(--font);
+  fill: var(--ink-3);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .chart__title {
+  fill: var(--ink-2);
+  font-size: 13px;
+}
+
+.chart .chart__grid {
+  stroke: var(--ink-4);
+  stroke-width: 1;
+}
+
+.chart .chart__axis {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+}
+
+.chart .chart__ref {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  fill: none;
+}
+
+.chart .chart__series {
+  stroke: var(--ink);
+  stroke-width: 2;
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .chart__cursor {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+}
+
+.chart .chart__tip {
+  fill: var(--ink);
+  font-size: 12px;
+}
+
+/* ---------- free play toolbar ---------- */
+.toolbar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: min(var(--panel-w), 100%);
+  padding: 80px var(--pad) 26px;
+  background: linear-gradient(to top, rgba(5, 4, 8, 0.92) 0%, rgba(5, 4, 8, 0.75) 60%, rgba(5, 4, 8, 0) 100%);
+}
+
+.toolbar h3 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  font-variation-settings: 'opsz' 72, 'SOFT' 60, 'WONK' 1;
+}
+
+.toolbar__credit {
+  font-size: 14px;
+  color: var(--ink-3);
+  margin: 0 0 14px;
+}
+
+.toolbar__sliders {
+  margin: 14px 0 18px;
+}
+
+/* ---------- HUD (small numbers, top-left under the brand) ---------- */
+.hud {
+  position: absolute;
+  left: var(--pad);
+  top: 56px;
+  font-size: 13.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  gap: 18px;
+}
+
+.hud b {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+/* ---------- unsupported ---------- */
+.unsupported {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: var(--pad);
+  gap: 10px;
+}
+
+.unsupported p {
+  max-width: 34em;
+  color: var(--ink-2);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title,
+  .panel__body,
+  .aside {
+    animation: none;
+  }
+}
+
+/* ---------- sound switch with level meter ---------- */
+.sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+
+.sound input {
+  appearance: none;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-3);
+  position: relative;
+  margin: 0;
+  cursor: pointer;
+  transition: background 0.2s var(--ease);
+}
+
+.sound input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.sound input:checked {
+  background: rgba(239, 232, 220, 0.18);
+}
+
+.sound input:checked::after {
+  transform: translateX(14px);
+  background: var(--ink);
+}
+
+.sound__meter {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.sound__meter span {
+  display: block;
+  width: 3px;
+  background: var(--ink);
+  opacity: 0.22;
+  border-radius: 1px;
+  transition: opacity 0.08s linear;
+}
+
+.sound__meter span:nth-child(1) {
+  height: 5px;
+}
+
+.sound__meter span:nth-child(2) {
+  height: 8px;
+}
+
+.sound__meter span:nth-child(3) {
+  height: 12px;
+}
+
+/* ---------- sound notice ---------- */
+.notice {
+  position: absolute;
+  top: 58px;
+  right: var(--pad);
+  font-size: 14px;
+  padding: 6px 14px;
+  border: 1px solid var(--ink-3);
+  border-radius: 999px;
+  color: var(--ink);
+  background: rgba(5, 4, 8, 0.7);
+  animation: fade 0.3s var(--ease) both;
+}
+
+/* ──────────────────────────────── phones ────────────────────────────────
+   The stage keeps the top of the screen; the wall text becomes a bottom sheet that
+   scrolls under a soft edge. Controls collapse to what a thumb can use. */
+@media (max-width: 760px) {
+  :root {
+    --sheet: 46dvh;
+  }
+
+  .topbar {
+    padding: calc(12px + env(safe-area-inset-top)) var(--pad) 0;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .topbar__brand {
+    gap: 12px;
+  }
+
+  /* 26 ticks do not fit a phone; the sheet names the chapter instead */
+  .ticks {
+    display: none;
+  }
+
+  .topbar__controls {
+    gap: 12px;
+  }
+
+  .textbtn {
+    font-size: 13px;
+  }
+
+  /* speed and pause are desktop niceties; the sheet's buttons do the work on a phone */
+  .textbtn--wide {
+    display: none;
+  }
+
+  /* the switch and meter say it; the word does not fit beside the brand */
+  .sound__label {
+    display: none;
+  }
+
+  .sound {
+    gap: 8px;
+  }
+
+  .notice {
+    top: calc(44px + env(safe-area-inset-top));
+    font-size: 13px;
+  }
+
+  /* the live numbers are a desktop nicety; on a phone they collide with the controls */
+  .hud {
+    display: none;
+  }
+
+  .panel {
+    top: auto;
+    bottom: 0;
+    max-height: var(--sheet);
+    padding: 22px var(--pad) calc(18px + env(safe-area-inset-bottom));
+    background: rgba(5, 4, 8, 0.9);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overscroll-behavior: contain;
+  }
+
+  /* a handle, so the sheet reads as something you can scroll */
+  .panel::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 3px;
+    margin: -8px auto 14px;
+    border-radius: 2px;
+    background: var(--ink-4);
+  }
+
+  .panel__chapter {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .panel h2 {
+    font-size: 25px;
+    margin-bottom: 12px;
+  }
+
+  .panel p {
+    font-size: 15px;
+    line-height: 1.48;
+  }
+
+  .panel__instrument {
+    margin-top: 16px;
+    padding-top: 14px;
+  }
+
+  .panel__nav {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--ink-4);
+  }
+
+  .panel__nav .textbtn {
+    font-size: 16px;
+  }
+
+  .nav__full {
+    display: none;
+  }
+
+  .nav__short {
+    display: inline;
+  }
+
+  .action {
+    font-size: 15px;
+    padding: 8px 16px;
+  }
+
+  .choice button {
+    padding: 4px 10px;
+  }
+
+  /* dial labels collide at this width; the ticks alone mark the places */
+  .dial__mark {
+    font-size: 0;
+  }
+
+  .zoo {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar {
+    max-height: var(--sheet);
+    overflow-y: auto;
+    padding: 22px var(--pad) calc(18px + env(safe-area-inset-bottom));
+    background: rgba(5, 4, 8, 0.9);
+    border-top: 1px solid var(--line);
+  }
+
+  .title {
+    padding-bottom: 10dvh;
+  }
+
+  .title h1 {
+    font-size: 15vw;
+  }
+
+  .title__hint {
+    max-width: 30em;
+    line-height: 1.5;
+  }
+
+  .map__inner {
+    padding-top: 64px;
+  }
+}
+
+/* ---------- wing grouping in the ticks ---------- */
+.ticks__wing {
+  display: flex;
+  gap: 6px;
+  margin-left: 10px;
+  padding-left: 10px;
+  border-left: 1px solid var(--ink-4);
+}
+
+/* ---------- the map ---------- */
+.map {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 4, 8, 0.86);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+  animation: fade 0.25s var(--ease) both;
+}
+
+.map__inner {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 80px var(--pad) 60px;
+}
+
+.map__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 36px;
+}
+
+.map__head h2 {
+  margin: 0;
+  font-size: clamp(34px, 4vw, 48px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-variation-settings: 'opsz' 96, 'SOFT' 60, 'WONK' 1;
+}
+
+.map__wings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 40px;
+}
+
+.map__wing h3 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-variation-settings: 'opsz' 48, 'SOFT' 50, 'WONK' 1;
+}
+
+.map__numeral {
+  color: var(--ink-3);
+  margin-right: 6px;
+}
+
+.map__tagline {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-style: italic;
+}
+
+.map__chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.map__chapters button {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ink-4);
+  text-align: left;
+  font-size: 16px;
+  color: var(--ink-2);
+  transition: color 0.2s var(--ease);
+}
+
+.map__chapters button:hover,
+.map__chapters button[aria-current='true'] {
+  color: var(--ink);
+}
+
+.map__n {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.4em;
+}
+
+.map__foot {
+  margin-top: 40px;
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+/* ---------- small data tables ---------- */
+.table {
+  border-collapse: collapse;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  font-weight: 400;
+  color: var(--ink-3);
+  text-align: left;
+  padding: 0 18px 6px 0;
+}
+
+.table td {
+  padding: 4px 18px 4px 0;
+  border-top: 1px solid var(--ink-4);
+  color: var(--ink-2);
+}
+
+.table__limit td {
+  color: var(--ink);
+}
+
+/* labels placed in the 3D scene (drei Html) */
+.label {
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  text-shadow: 0 0 6px var(--bg);
+}
+
+.readout--key {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  word-break: break-all;
+  color: var(--ink-2);
+}
+
+/* ---------- recording captions (film mode) ---------- */
+.film {
+  position: absolute;
+  left: 72px;
+  bottom: 64px;
+  max-width: 46%;
+  pointer-events: none;
+}
+
+.film h1 {
+  margin: 0 0 10px;
+  font-size: 54px;
+  font-weight: 300;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 60, 'WONK' 1;
+  text-shadow: 0 2px 30px rgba(5, 4, 8, 0.9);
+}
+
+.film p {
+  margin: 0;
+  font-size: 24px;
+  font-style: italic;
+  color: var(--ink-2);
+  font-variation-settings: 'opsz' 40, 'SOFT' 50;
+  text-shadow: 0 2px 24px rgba(5, 4, 8, 0.9);
+}
+
+.film--centre {
+  left: 0;
+  right: 0;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: none;
+  text-align: center;
+}
+
+.film--centre h1 {
+  font-size: 112px;
+  margin-bottom: 18px;
+}
+
+.film--centre p {
+  font-size: 28px;
+}
