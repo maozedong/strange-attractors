@@ -1,1 +1,0 @@
-import{i as e,r as t,s as n}from"./shared-CA0zdnrO.js";var r=r=>{let{engine:i,dust:a,rig:o,palette:s}=r,c=n(i);return{enter(){a.floorY=null,i.backdrop.floor=.4,a.morphTo(c,{...e(s),gain:.2},{seconds:3,swirl:1.2}),o.shot({target:[0,0,0],distance:4,azimuth:0,elevation:6,orbit:1.5,aperture:.006},3)},update(){t(c,i.time)},dispose(){}}};export{r as default};
