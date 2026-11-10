@@ -2,16 +2,13 @@
  * The title. The dust drifts in as a loose cloud and settles into the words; when the film
  * begins the letters let go and become the first scene.
  */
-import { PointsSource, textPoints } from '../engine/sources'
 import type { SceneFactory } from '../film/types'
-import { driftMotes, haze, ink, motes } from './kit/shared'
-
-const FAMILY = '"Fraunces Variable", Fraunces, Georgia, serif'
+import { driftMotes, haze, motes } from './kit/shared'
+import { TITLE_SHOT, titleLook, titleSource } from './kit/titleText'
 
 const title: SceneFactory = (ctx) => {
   const { engine, dust, rig, palette } = ctx
   const cloud = motes(engine)
-  let text: PointsSource | null = null
   let alive = true
 
   return {
@@ -19,13 +16,9 @@ const title: SceneFactory = (ctx) => {
       dust.floorY = null
       engine.backdrop.floor = 0
       dust.setSource(cloud, haze(palette))
-      rig.shot({ target: [0, -0.42, 0], distance: 4.6, azimuth: 0, elevation: 1.5, orbit: 0, aperture: 0.005, fov: 38, portrait: { distance: 4.3, target: [0, -0.7, 0] } }, 0)
-      void document.fonts.load(`300 200px ${FAMILY}`).then(() => {
-        if (!alive) return
-        const pts = textPoints(['Strange', 'Attractors'], FAMILY, 300, 140000, 0.6, 0.98)
-        text = new PointsSource(engine.size)
-        text.fill(pts, 3, 0.0025)
-        void dust.morphTo(text, { ...ink(palette, 0.78), toneScale: 0.22, gain: 0.4, twinkle: 0.35 }, { seconds: 3.4, swirl: 1.1 })
+      rig.shot(TITLE_SHOT, 0)
+      void titleSource(engine).then((text) => {
+        if (alive) void dust.morphTo(text, titleLook(palette), { seconds: 3.4, swirl: 1.1 })
       })
     },
     update() {
@@ -37,7 +30,6 @@ const title: SceneFactory = (ctx) => {
     },
     dispose() {
       alive = false
-      text?.dispose()
     },
   }
 }

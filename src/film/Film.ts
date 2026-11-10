@@ -311,6 +311,7 @@ export class Film {
         if (c.phaseClock <= 0) this.openGate()
       } else if (c.phase === 'outro') {
         c.t += dt
+        c.segTime += dt
         c.phaseClock -= dt
         this.fire(c)
         if (c.phaseClock <= 0) {
@@ -353,7 +354,7 @@ export class Film {
       c.phase = 'outro'
       c.phaseClock = c.script.outro ?? 2.5
       c.seg = c.segments.length - 1
-      c.segTime = c.timing[c.seg].dur + 1e3
+      c.segTime = c.timing[c.seg].dur + 0.2
       this.fire(c)
       useFilm.setState({ caption: null })
       return

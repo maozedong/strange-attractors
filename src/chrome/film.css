@@ -1130,36 +1130,9 @@ input[type='range']::-moz-range-thumb {
   padding-top: 16px;
 }
 
-/* ---------- end ---------- */
+/* ---------- end: the same place as the start, under the title the dust has re-formed ---------- */
 .end {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 20px;
-  padding: 0 var(--pad);
-  text-align: center;
-  background: radial-gradient(70% 60% at 50% 50%, rgba(3, 3, 9, 0.78), rgba(3, 3, 9, 0.3) 75%, transparent);
-  animation: fade 2.4s var(--ease) both;
-}
-
-.end h2 {
-  margin: 0;
-  font-size: clamp(40px, 6vw, 100px);
-  font-weight: 300;
-  line-height: 0.98;
-  letter-spacing: -0.03em;
-  font-variation-settings: 'opsz' 144, 'SOFT' 80, 'WONK' 1;
-}
-
-.end p {
-  margin: 0;
-  max-width: 30em;
-  font-size: clamp(15px, 1vw + 8px, 19px);
-  font-style: italic;
-  color: var(--ink-2);
-  text-wrap: balance;
+  animation-delay: 4.6s;
 }
 
 .end__actions {
@@ -1167,7 +1140,6 @@ input[type='range']::-moz-range-thumb {
   flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
-  margin-top: 8px;
 }
 
 /* ---------- notices ---------- */

@@ -476,9 +476,8 @@ function Lab() {
 
 function End() {
   return (
-    <section className="end" aria-label="The end">
-      <h2>Strange Attractors</h2>
-      <p>Every picture in this film was computed in your browser while you watched. The mathematics is real; the narration and music were generated.</p>
+    <section className="start end" aria-label="The end">
+      <p className="start__what">Every picture in this film was computed in your browser while you watched. The mathematics is real; the narration and the music were generated.</p>
       <div className="end__actions">
         <button className="begin" onClick={() => film?.begin(0)}>
           Watch again
@@ -487,9 +486,11 @@ function End() {
           Choose a scene
         </button>
       </div>
-      <a className="link" href="https://github.com/maozedong/strange-attractors" target="_blank" rel="noreferrer">
-        Source on GitHub
-      </a>
+      <div className="start__more">
+        <a className="link" href="https://github.com/maozedong/strange-attractors" target="_blank" rel="noreferrer">
+          Source on GitHub
+        </a>
+      </div>
     </section>
   )
 }
