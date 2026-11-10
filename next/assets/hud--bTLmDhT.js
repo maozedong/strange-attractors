@@ -1,0 +1,1 @@
+var e=()=>window.innerWidth<=720,t=()=>e()?222:102;function n(n,r=``){return n.label(r,{kind:`num`,at:{screen:[0,1]},align:`right`,dx:e()?18:34,dy:-t()})}function r(n,r,i){let a=n.label(``,{kind:`plate`,at:{screen:[0,1]},align:`right`,dx:e()?18:34,dy:-(t()+36)});return a.setHtml(`${r}<small>${i}</small>`),a}export{n,r as t};

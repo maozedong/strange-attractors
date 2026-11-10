@@ -1,1 +1,0 @@
-var e=()=>window.innerWidth<=720?104:76;function t(t,n=``){return t.label(n,{kind:`num`,at:{screen:[0,1]},align:`right`,dx:window.innerWidth<=720?18:34,dy:-(e()+26)})}function n(t,n,r){let i=t.label(``,{kind:`plate`,at:{screen:[0,1]},align:`right`,dx:window.innerWidth<=720?18:34,dy:-(e()+62)});return i.setHtml(`${n}<small>${r}</small>`),i}export{t as n,n as t};
