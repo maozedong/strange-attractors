@@ -31,6 +31,8 @@ const LINE_GAP = 0.45
 /** quiet beat before a scene's first word */
 const LEAD = 1.4
 const CARD_SECONDS = 3.8
+/** the music bed for each act: public/music/<id>.mp3 */
+const MUSIC: Record<number, string> = { 0: 'storm', 1: 'storm', 2: 'water', 3: 'moss', 4: 'brass', 5: 'phosphor', 6: 'storm' }
 /** how long the scene being left keeps running under the new one */
 const OVERLAP = 3.2
 
@@ -244,7 +246,7 @@ export class Film {
     const newAct = script.act !== prevAct
     if (newAct) {
       this.engine.setAct(script.act)
-      sound.setMusic(`act-${script.act}`)
+      sound.setMusic(MUSIC[script.act] ?? null)
     }
 
     const run = this.mount(index, script, factory)

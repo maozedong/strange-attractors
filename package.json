@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "measure": "tsx scripts/measure.ts",
     "audio": "tsx scripts/audio.ts",
-    "narrate": "tsx scripts/narrate.ts"
+    "narrate": "tsx scripts/narrate.ts",
+    "score": "tsx scripts/score.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
