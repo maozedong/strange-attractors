@@ -39,16 +39,15 @@ Subject: a rhythm turning into chaos, then every rhythm laid side by side.
 - L8: ease toward the period-3 window (`PERIOD3_WINDOW` in `fractal/logistic/math.ts`), note
   pinned there: "the rhythm comes back".
 
-**LogisticSource** (build it in `src/scenes/kit/LogisticSource.ts`, shared with feigenbaum and
-shadow): a GPU DustSource. Each particle owns a fixed `u` in 0..1 (from its texel x plus a
-sub-texel jitter from its y, so columns are not visible) mapped to `r = rMin + u (rMax − rMin)`,
-and iterates `x ← r x (1 − x)` several times a frame (8-16; it must reconverge quickly when the
-range changes). Position = `(u, x, tiny z jitter)` in a unit square that the source's matrix
-places in the world. Uniforms: the r range (so a zoom is a change of range, with endless
-detail), a reveal position 0..1 (particles beyond it wait on the reveal edge, making a bright
-scanning line), and an x range for vertical zoom. Aux = x. No prevTexture (round points; they
-jump every frame, and at 60 Hz the eye reads the density, which is the point). Keep one
-instance for the film (`WeakMap<Engine, ...>` as in `kit/shared.ts`).
+**LogisticSource** already exists: `src/scenes/kit/LogisticSource.ts` (read its header).
+`logisticSource(engine)` returns the film's one instance, shared by tap, feigenbaum and shadow.
+Each particle owns a dial position and iterates the map there every frame; source space is the
+unit square (dial across, value up). `setDial(min, max)` and `setValue(min, max)` zoom by
+changing range (endless detail), `reveal` (0..1) draws it left to right, `place(w, h, centre)`
+or `matrix` stands it in the world, `toWorld(dial, value)` gives the world position of a point
+on it for labels, and `setForm('quadratic')` switches to z → z² + c, which lines up with the
+real axis of the Mandelbrot set. Round points (no streaks); use `ink` or `tone: 'aux'`.
+You may extend this file if you need to (keep the existing API working; another builder uses it).
 
 Lab: slider r (2.8 to 4), toggle between the drops and the diagram.
 
