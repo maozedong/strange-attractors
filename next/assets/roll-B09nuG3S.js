@@ -1,4 +1,4 @@
-import{Cn as e,Hn as t,_ as n,ft as r,i,pt as a,r as o,wn as s,wt as c,xt as l}from"./sources-DZb2XxHs.js";import{a as u}from"./shared-CraSzh4m.js";import{a as d,n as f,r as ee,t as p}from"./index-C7a4hDdp.js";import{t as te}from"./hud--bTLmDhT.js";import{n as ne,t as re}from"./lineMaterial-BQu74erT.js";import{n as ie,t as ae}from"./Line2-D2-GTPpg.js";import{a as m,i as h,t as g}from"./IfsSim-C7XqOblH.js";var _=`
+import{Cn as e,Hn as t,_ as n,ft as r,i,pt as a,r as o,wn as s,wt as c,xt as l}from"./sources-DZb2XxHs.js";import{a as u}from"./shared-CraSzh4m.js";import{a as d,n as f,r as ee,t as p}from"./index-p9n9GozK.js";import{t as te}from"./hud--bTLmDhT.js";import{n as ne,t as re}from"./lineMaterial-QacBsFmw.js";import{n as ie,t as ae}from"./Line2-DdacJVSv.js";import{a as m,i as h,t as g}from"./IfsSim-C7XqOblH.js";var _=`
 varying vec2 vUv;
 void main() {
   vUv = uv;
