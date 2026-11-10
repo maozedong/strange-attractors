@@ -80,6 +80,8 @@ interface Running {
   alive: boolean
   /** entered in explore mode: no narration, no captions, and the film does not move on */
   silent: boolean
+  /** the film has moved on; the scene is only fading out */
+  leaving: boolean
 }
 
 function estimate(seg: Segment): SegmentTiming {
@@ -510,6 +512,7 @@ export class Film {
       caption: -1,
       alive: true,
       silent: false,
+      leaving: false,
     }
     run.scene = factory(this.context(run))
     run.cues = (run.scene.cues ?? []).map((cue) => this.resolve(run, cue))
@@ -553,7 +556,9 @@ export class Film {
       },
       label(text: string, opts: LabelOptions) {
         const l = engine.labels.add(text, opts)
-        run.labels.push(l)
+        // a scene on its way out has no business putting words on screen
+        if (run.leaving) l.remove()
+        else run.labels.push(l)
         return l
       },
       until(line, word) {
@@ -650,6 +655,12 @@ export class Film {
     run.pointers = []
     for (const l of run.labels) l.remove()
     run.labels = []
+    // whatever the scene had in motion stops here: the dust and the camera now belong to the
+    // next scene, and an old tween must not keep writing to them. Only what exit() starts
+    // (the scene's own fade) runs on.
+    run.tweens = []
+    run.timers = []
+    run.leaving = true
     run.scene.exit?.()
     this.leaving.push({ run, left: OVERLAP })
   }

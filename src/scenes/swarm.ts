@@ -59,15 +59,15 @@ const swarm: SceneFactory = (ctx) => {
     flow.paused = false
     paced = true
     ctx.tween(8, (u) => (dust.look.size = 0.0045 + (0.0028 - 0.0045) * u), { ease: easeOut, tag: 'size' })
-    // stay with the thread while it is small, then let the whole shape into frame
-    rig.shot({ distance: 2.1, elevation: 10, aperture: 0.003 }, 5)
+    // stay with the thread while it is drawn out, backing away as it grows; then settle on the whole shape
+    rig.shot({ distance: 3.5, elevation: 10, aperture: 0.003 }, 8)
     following = true
     rig.track((target) => {
       if (following) target.copy(flow.toWorld([centre[0], centre[1], centre[2]], dot))
     })
-    ctx.after(4.2, () => {
+    ctx.after(8, () => {
       following = false
-      rig.shot({ target: [0, -0.24, 0], distance: 3.75, azimuth: 205, elevation: 12, orbit: 2.2, aperture: 0.004 }, 7)
+      rig.shot({ target: [0, -0.24, 0], distance: 3.75, azimuth: 205, elevation: 12, orbit: 2.2, aperture: 0.004 }, 5)
     })
     clock = readout(ctx)
   }
