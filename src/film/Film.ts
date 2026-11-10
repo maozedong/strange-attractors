@@ -149,6 +149,7 @@ export class Film {
   /** start (or restart) the film at a scene */
   begin(index = 0) {
     sound.unlock()
+    for (const name of ['release', 'shimmer', 'split', 'rise', 'drip', 'tick', 'turn', 'fold']) sound.prefetch(name)
     void this.goto(index)
   }
 
@@ -257,7 +258,10 @@ export class Film {
     const card = newAct && script.act >= 1 && script.act <= 5 && info ? info : null
     run.phaseClock = card ? CARD_SECONDS : LEAD
     useFilm.setState({ loading: false, card, labAvailable: !!run.scene.lab?.length || !!run.scene.notes?.length })
-    if (card) run.timers.push({ left: CARD_SECONDS - 0.5, fn: () => useFilm.setState({ card: null }) })
+    if (card) {
+      sound.sfx('rise', 0.3)
+      run.timers.push({ left: CARD_SECONDS - 0.5, fn: () => useFilm.setState({ card: null }) })
+    }
 
     // warm up what comes next
     for (let s = 0; s < run.segments.length; s++) sound.preloadVoice(segmentStem(script.id, s))

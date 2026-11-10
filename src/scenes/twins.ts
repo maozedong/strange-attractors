@@ -5,6 +5,7 @@
  */
 import { rampColor } from '../engine/palettes'
 import { at, type SceneFactory } from '../film/types'
+import { sound } from '../sound/audio'
 import { getSystem } from '../systems'
 import type { Vec3 } from '../types'
 import { Paths, timeToSplit } from './kit/Paths'
@@ -45,6 +46,8 @@ const twins: SceneFactory = (ctx) => {
   const history: number[] = []
   let sampleClock = 0
   let running = false
+  /** the two have visibly parted since the last launch */
+  let parted = false
 
   const launch = (gap: number, history_ = 1100) => {
     gap0 = gap
@@ -52,6 +55,7 @@ const twins: SceneFactory = (ctx) => {
     paths.start([LORENZ_SEED, b], history_, true)
     history.length = 0
     running = true
+    parted = false
   }
 
   /** set the pace so the two part company `seconds` from now */
@@ -133,6 +137,10 @@ const twins: SceneFactory = (ctx) => {
     update(dt) {
       paths.update(dt, engine.renderer.getPixelRatio())
       if (running) {
+        if (!parted && paths.gap > VISIBLE) {
+          parted = true
+          sound.sfx('split', 0.45)
+        }
         plot?.setValue(formatGap(paths.gap))
         sampleClock += dt * paths.rate
         if (sampleClock > 0.15) {

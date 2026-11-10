@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three'
 import { at, easeInOut, type SceneFactory } from '../film/types'
+import { sound } from '../sound/audio'
 import { getSystem } from '../systems'
 import { FLOOR, lorenzFlow, resetLorenz, silk } from './kit/shared'
 
@@ -21,6 +22,7 @@ const shape: SceneFactory = (ctx) => {
     const look = { ...dust.look }
     dust.setSource(dust.bake(), look)
     flow.spawnCloud(f.center, 1.15 / f.scale)
+    sound.sfx('shimmer', 0.35)
     void dust.morphTo(flow, look, { seconds: 1.1, swirl: 0.15 })
     flow.paused = false
     flow.speed = 0.5

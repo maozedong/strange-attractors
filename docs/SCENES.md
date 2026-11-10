@@ -156,7 +156,7 @@ for figures and names only.
 
 `sound.note(freq, { gain, seconds, pan })` plays a soft plucked sine through the hall reverb:
 use it to make events audible (a drip, a tick, a flash locking into step), quietly (gain ≤ 0.2)
-and never more than a few per second. `sound.sfx('release' | 'shimmer' | 'rise' | 'drip' | 'tick' | 'turn' | 'split')`
+and never more than a few per second. `sound.sfx('release' | 'shimmer' | 'rise' | 'drip' | 'tick' | 'turn' | 'split' | 'fold')`
 plays a recorded effect. The score and the mix are handled centrally.
 
 ### The lab and the notes

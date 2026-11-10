@@ -4,6 +4,7 @@
  */
 import { at, type SceneFactory } from '../film/types'
 import { FlowSource } from '../engine/sources'
+import { sound } from '../sound/audio'
 import { SYSTEMS, getSystem } from '../systems'
 import type { SystemId } from '../types'
 import { plate as namePlate } from './kit/hud'
@@ -20,6 +21,7 @@ const zoo: SceneFactory = (ctx) => {
   const show = (id: SystemId, seconds = 2.2) => {
     if (id === current) return
     current = id
+    sound.sfx('shimmer', 0.3)
     const sys = getSystem(id)
     let src: FlowSource
     if (id === 'lorenz') {

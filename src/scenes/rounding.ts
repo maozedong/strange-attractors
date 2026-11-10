@@ -233,6 +233,7 @@ const rounding: SceneFactory = (ctx) => {
       // "Drawn in space, they look like this."
       at(10, 'Drawn in space', () => {
         freshRate = b.n
+        sound.sfx('fold', 0.7)
         ctx.tween(6.5, (u) => (fold = u), { ease: easeInOut })
         // wound onto the butterfly the lines overlap many times over: turn them down as they fold
         ctx.tween(6.5, (u) => (opacity = 1 - 0.45 * u))
