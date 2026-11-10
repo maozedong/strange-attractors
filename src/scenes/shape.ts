@@ -72,7 +72,9 @@ const shape: SceneFactory = (ctx) => {
       at(2, rain),
       // "it isn't a surface, and it isn't a solid": turn until the wings are seen edge on, thin as blades
       at(4, () => {
-        rig.shot({ target: [0, 0.05, 0], distance: 2.1, azimuth: 150, elevation: 9, orbit: 1.2, aperture: 0.006 }, 7)
+        rig.shot({ target: [0, 0.0, 0], distance: 2.9, azimuth: 150, elevation: 9, orbit: 1.2, aperture: 0.005 }, 7)
+        // edge on, every sheet lies along the line of sight and the light piles up: turn it down
+        ctx.tween(6, (u) => (dust.look.gain = 0.6 - 0.33 * u), { tag: 'edge' })
       }),
       at(6, () => {
         figure = ctx.label('2.06', { kind: 'big', at: { screen: [0.5, 0.5] }, align: 'center' })
@@ -80,6 +82,7 @@ const shape: SceneFactory = (ctx) => {
       }),
       at(7, () => {
         rig.shot({ target: [0, -0.24, 0], distance: 3.45, azimuth: 205, elevation: 12, orbit: 2.4, aperture: 0.004 }, 5)
+        ctx.tween(4, (u) => (dust.look.gain = 0.27 + 0.33 * u), { tag: 'edge' })
         ctx.after(2.6, () => markEyes(true))
       }),
       at(8, 2.5, () => markEyes(false)),

@@ -269,11 +269,14 @@ export class Film {
     const run = this.mount(index, script, factory)
     this.cur = run
     run.silent = exploring
-    run.scene.enter(prev ? prev.script.id : null)
-
     const info = ACTS.find((a) => a.act === script.act)
     const card = !exploring && newAct && script.act >= 1 && script.act <= 5 && info ? info : null
+    // set before enter(), so a scene can ask how long until its first line
     run.phaseClock = card ? CARD_SECONDS : LEAD
+    // every scene starts from the room's normal light; one that wants dusk or night says so in enter()
+    this.engine.backdrop.level = 1
+    run.scene.enter(prev ? prev.script.id : null)
+
     useFilm.setState({ loading: false, card, labAvailable: true })
     if (card) {
       sound.sfx('rise', 0.3)

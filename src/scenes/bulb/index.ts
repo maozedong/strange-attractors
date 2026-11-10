@@ -90,7 +90,8 @@ const bulb: SceneFactory = (ctx) => {
         const g0 = dust.look.gain
         ctx.tween(2, (u) => (dust.look.gain = g0 + (look.gain - g0) * u))
       }
-      ctx.tween(2.6, (u) => (fade = u), { tag: 'fade' })
+      // let the last scene's dust clear the stage before the lump appears in it
+      ctx.after(1.3, () => ctx.tween(2.2, (u) => (fade = u), { tag: 'fade' }))
       shot({ target: [0, 0.24, 0], distance: 5.6, azimuth: 30, elevation: 14, fov: 38, orbit: 2.5, aperture: 0.004 }, 3)
     },
 

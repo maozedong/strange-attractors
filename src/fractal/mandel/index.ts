@@ -1,5 +1,0 @@
-export { MandelbrotPlane, animateMandelTo, type MandelbrotPlaneProps } from './MandelbrotPlane'
-export { JuliaPlane, type JuliaPlaneProps } from './JuliaPlane'
-export { cancelMandelFlight } from './tween'
-export { MANDEL_TARGETS, type MandelTargetName } from './targets'
-export { maxIterForScale, MIN_SCALE, MAX_SCALE } from './orbit'

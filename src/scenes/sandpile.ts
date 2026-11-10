@@ -597,7 +597,7 @@ const sandpile: SceneFactory = (ctx) => {
           src.uniforms.uPat.value = u
           dust.look.gain = g0 + (GAIN_PATTERN * tall() - g0) * u
         }, { ease: easeInOut, tag: 'pat' })
-        rig.shot({ target: [0, TABLE_Y, 0], distance: 3.3, azimuth: 0, elevation: 88, orbit: 0, aperture: 0.0015, portrait: { distance: 3.9 } }, Math.max(3, ctx.until(7) + 0.5))
+        rig.shot({ target: [0, TABLE_Y, 0.42], distance: 4.5, azimuth: 0, elevation: 88, orbit: 0, aperture: 0.0015, portrait: { distance: 3.9, target: [0, TABLE_Y, 0] } }, Math.max(3, ctx.until(7) + 0.5))
         // grains rain on the middle while the pattern grows out from it
         middle = true
         quiet = false
@@ -609,7 +609,7 @@ const sandpile: SceneFactory = (ctx) => {
       at(7, 'this', () => {
         plate(ctx, '100,000 grains', 'all dropped on one spot')
       }),
-      at(8, () => rig.shot({ distance: 2.6, orbit: 4, portrait: { distance: 3.7 } }, 7)),
+      at(8, () => rig.shot({ distance: 3.9, orbit: 4, portrait: { distance: 3.7 } }, 7)),
     ],
 
     explore() {

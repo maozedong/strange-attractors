@@ -92,19 +92,20 @@ export default function App() {
 
   // while the film plays untouched, the interface gets out of the way
   useEffect(() => {
-    let timer = 0
+    let last = performance.now()
     const wake = () => {
+      last = performance.now()
       setIdle(false)
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => {
-        const s = useFilm.getState()
-        if (s.status === 'playing' && !s.lab && !s.indexOpen) setIdle(true)
-      }, 3200)
     }
-    wake()
+    // checked on a clock rather than once per gesture, so it also hides when the film was started
+    // and then simply left alone
+    const tick = window.setInterval(() => {
+      const s = useFilm.getState()
+      setIdle(performance.now() - last > 3200 && s.status === 'playing' && !s.lab && !s.indexOpen)
+    }, 400)
     for (const ev of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, wake, { passive: true })
     return () => {
-      window.clearTimeout(timer)
+      window.clearInterval(tick)
       for (const ev of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.removeEventListener(ev, wake)
     }
   }, [])

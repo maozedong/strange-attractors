@@ -401,13 +401,9 @@ const cat: SceneFactory = (ctx) => {
     ],
 
     explore() {
-      // the picture, whole, stepping slowly; the pace is in the drawer
+      // the picture, whole and still: "One step" and the pace are in the drawer
       figure = readout(ctx)
       showStep()
-      ctx.after(3.8, () => {
-        schedule = null
-        rate = 1
-      })
     },
 
     update(dt) {

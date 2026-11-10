@@ -33,7 +33,8 @@ function flash(theta: number): number {
   const pulse = x4 * x4 * x2
   // the light lingers a moment after the peak (θ just past 0) and is gone before the next
   const after = theta < 2.2 ? 0.22 * Math.exp(-theta * 1.6) : 0
-  return Math.min(1, pulse + after)
+  // never fully dark: between flashes each firefly keeps a faint ember, so a tree in step is still a tree
+  return Math.min(1, 0.055 + 0.945 * (pulse + after))
 }
 /** the clocks the film starts from (chosen so the tree falls into step on the narrator's words) */
 const SEED = 7

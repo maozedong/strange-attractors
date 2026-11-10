@@ -64,15 +64,15 @@ const pendulums: SceneFactory = (ctx) => {
   mirror.add(reflected)
   root.add(mirror, stage)
 
-  const trails = new FatSegments(MAX_COPIES * TRAIL_MAX, 1, 18)
-  const rods = new FatSegments(MAX_COPIES * 2, 1.4, 19)
+  const trails = new FatSegments(MAX_COPIES * TRAIL_MAX, 1.3, 18)
+  const rods = new FatSegments(MAX_COPIES * 2, 2, 19)
   const ring = new FatSegments(48, 1, 19)
   const beads = new Beads(MAX_COPIES * 2 + 1)
   stage.add(trails.line, rods.line, ring.line, beads.points)
   reflected.add(trails.mirror(MIRROR), rods.mirror(MIRROR), beads.mirror(MIRROR))
 
   // colours: rods from the cold end, weights and trails from the hot end
-  const rodColor = rampColor(palette, 0.32).multiplyScalar(1.1)
+  const rodColor = rampColor(palette, 0.36).multiplyScalar(2.1)
   const ringColor = rampColor(palette, 0.5).multiplyScalar(0.6)
   const tmp = new THREE.Color()
   /** tone of copy k of n along the hot half of the ramp */
@@ -277,7 +277,7 @@ const pendulums: SceneFactory = (ctx) => {
 
     // n copies drawn on top of one another add up: keep their sum to `together` × one pendulum
     const per = together / n
-    rods.opacity = fade * Math.max(per, 0.025)
+    rods.opacity = fade * Math.max(per, 0.04)
     trails.opacity = fade * trailGain * Math.max(per, 0.04)
     beads.opacity = fade * Math.min(1, Math.max(per * 1.5, 0.16))
     ring.opacity = fade
@@ -401,7 +401,7 @@ const pendulums: SceneFactory = (ctx) => {
         ctx.tween(1.5, (u) => (liftU = u), { ease: easeInOut, tag: 'lift', done: held })
         setShown(copies)
         ctx.tween(2.4, (u) => (together = 1 + 2.2 * u), { ease: easeInOut })
-        rig.shot({ target: [0, PY - 0.24, 0], distance: 3.5, azimuth: 8, elevation: 6, orbit: 0, aperture: 0.003, portrait: { distance: 2.25, target: [0, PY - 0.6, 0] } }, 2.6)
+        rig.shot({ target: [0, PY - 0.24, 0], distance: 3.1, azimuth: 8, elevation: 6, orbit: 0, aperture: 0.003, portrait: { distance: 2.25, target: [0, PY - 0.6, 0] } }, 2.6)
       }),
       at(2, 'a hundred', 0.2, () => {
         count = ctx.portrait
@@ -419,7 +419,7 @@ const pendulums: SceneFactory = (ctx) => {
       // "Then the fan opens": the futures part in depth too, and the camera turns to see it
       at(5, () => {
         clock = readout(ctx)
-        rig.shot({ target: [0, PY - 0.2, 0], distance: 3.7, azimuth: 34, elevation: 9, orbit: 1.4, aperture: 0.004, portrait: { distance: 2.35, target: [0, PY - 0.55, 0] } }, 6)
+        rig.shot({ target: [0, PY - 0.2, 0], distance: 3.3, azimuth: 34, elevation: 9, orbit: 1.4, aperture: 0.004, portrait: { distance: 2.35, target: [0, PY - 0.55, 0] } }, 6)
       }),
       at(6, () => {
         ctx.tween(6, (u) => {
@@ -428,7 +428,7 @@ const pendulums: SceneFactory = (ctx) => {
         }, { ease: easeInOut })
       }),
       at(7, () => {
-        rig.shot({ target: [0, PY - 0.12, 0], distance: 4.5, azimuth: 20, elevation: 11, orbit: 1.8, portrait: { distance: 2.6, target: [0, PY - 0.5, 0] } }, 8)
+        rig.shot({ target: [0, PY - 0.12, 0], distance: 3.9, azimuth: 20, elevation: 11, orbit: 1.8, portrait: { distance: 2.6, target: [0, PY - 0.5, 0] } }, 8)
       }),
     ],
 

@@ -65,7 +65,7 @@ const swarm: SceneFactory = (ctx) => {
     rig.track((target) => {
       if (following) target.copy(flow.toWorld([centre[0], centre[1], centre[2]], dot))
     })
-    ctx.after(7, () => {
+    ctx.after(4.2, () => {
       following = false
       rig.shot({ target: [0, -0.24, 0], distance: 3.75, azimuth: 205, elevation: 12, orbit: 2.2, aperture: 0.004 }, 7)
     })

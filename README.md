@@ -1,63 +1,59 @@
 # Strange Attractors
 
-An interactive, three-dimensional tour of chaos theory for curious people: Lorenz's
-rounding error, twin trajectories splitting, a quarter-million-particle swarm being
-stretched and folded, a dial that takes the same equations from stillness to chaos,
-and a zoo of thirteen strange attractors.
+A sixteen-minute narrated film about chaos, fractals and emergence, rendered live in the
+browser. Everything on screen is made of one field of dust, a quarter of a million particles
+that flow from Lorenz's butterfly into a bifurcation diagram, a fern, a coastline, Saturn's
+rings, a flock of starlings. Every picture is computed as you watch; nothing is video.
 
-Live: https://maozedong.github.io/strange-attractors/
+Two ways to see it: **Watch** (the narrator drives, and the film waits when it asks you to do
+something) and **Explore** (no narration: every scene with its dials and notes in your hands).
 
 ```
 pnpm install
-pnpm dev        # http://localhost:5173
-pnpm build      # typecheck + production build
-pnpm measure    # numerically verify every attractor in the catalog
+pnpm dev          # http://localhost:5173
+pnpm build        # typecheck + production build
+pnpm narrate      # record the narration and its word timings   (needs ELEVEN_API_KEY)
+pnpm score        # generate the music beds                     (needs ELEVEN_API_KEY)
 ```
 
-## How it works
+`?scene=<id>` starts at a scene; `?speed=3` runs the film clock silently and faster (for
+checking layouts); `?n=256|512|1024` sets the dust's texture size.
 
-- **The swarm** (`src/sim/SwarmSim.ts`, `src/scene/Swarm.tsx`) integrates 262,144
-  particles on the GPU with fourth-order Runge–Kutta, ping-ponging between two
-  floating-point render targets. Each particle is a texel; the vertex shader reads its
-  position and the fragment shader draws a soft additive dot. Bloom does the rest.
-- **The twins** (`src/scene/Trajectories.tsx`) are integrated on the CPU in double
-  precision so a starting gap of one part in a trillion is meaningful, and drawn as
-  fat lines with fading tails.
-- **The catalog** (`src/systems/`) defines each attractor once in GLSL and once in
-  JavaScript. `pnpm measure` checks the two agree, that nothing escapes to infinity,
-  and that every system is framed to fit the view.
-- **The tour** (`src/content/chapters.tsx`) is the narrative, organised in wings. Each
-  chapter applies a preset to the stage, brings its own instrument, and lists cues: actions
-  tied to phrases of its narration. The director (`src/director/director.ts`) fires them
-  when the voice reaches the phrase, using the word timings in `public/audio/vo-<id>.json`
-  (forced alignment, produced by `pnpm audio`). Narration off still plays the pictures on
-  the same clock.
-- **Wing II** adds two more stages: the logistic map with its dripping tap
-  (`src/fractal/logistic/`) and the complex plane (`src/fractal/mandel/`, perturbation-based
-  deep zoom to a trillionth of the set's width).
-- **Wing III** adds four: the chaos game (`src/fractal/ifs/`, 262k points folding into
-  Sierpinski's triangle, Barnsley's fern and friends), the real coastline of Great Britain with
-  Richardson's ruler walk and box counting of the Lorenz attractor (`src/fractal/coast/`; the
-  data comes from Natural Earth via `pnpm tsx scripts/coastline.ts`), a ray-marched Mandelbulb
-  with adaptive resolution (`src/fractal/bulb/`), and Arnold's cat map on a 256-pixel grid,
-  which returns the picture exactly after 192 steps (`src/fractal/cat/`; the visitor can use
-  their own camera, and the picture never leaves the page).
-- **Wing IV** (`src/world/`) leaves the mathematics for the world: a hundred double pendulums
-  fanning out, a Lorenz-96 ensemble forecast with its two-week wall, the narrator's (or the
-  visitor's) voice unfolded into an attractor by Takens delay embedding, Hyperion tumbling
-  chaotically round Saturn, and a taffy puller and a wall of lava lamps for chaos put to work.
-- **Wing V** (`src/world/`, loaded as its own chunk) is the mirror image, order from nothing:
-  ten thousand boids, Turing's reaction–diffusion on a sphere, Lenia's creatures, Kuramoto
-  fireflies falling into step, and the Bak–Tang–Wiesenfeld sandpile with its single-source
-  fractal computed in a worker.
+## How it is made
 
-Publishing: `BASE_PATH=/strange-attractors/ pnpm build`, then push `dist/` to the `gh-pages`
-branch of `maozedong/strange-attractors` (GitHub Pages serves it from there). The build is
-static; nothing runs on a server.
+- **The dust** (`src/engine/Dust.ts`). Scenes never own particles. A scene hands the dust a
+  *source* (a float texture of positions plus a matrix) and a *look*; the dust flies there from
+  wherever the last scene left it. The flight is stateless: the vertex shader samples both
+  sources and blends, so both ends keep moving in flight and the arrival is exact. Particles
+  are camera-facing quads with a thin-lens depth of field and motion smear, drawn additively
+  into a half-float buffer, then bloomed, tone-mapped and grained (`src/engine/post.ts`).
+- **Sources** (`src/engine/sources.ts`, `src/scenes/kit/`). Strange attractors integrated on
+  the GPU with RK4, the chaos game, the bifurcation diagram (every particle iterates the map at
+  its own dial position, so a zoom is only a change of range), Julia sets by inverse iteration,
+  and CPU-placed points for coastlines, flocks, fireflies, photographs and lettering.
+- **The film** (`src/film/`). `screenplay.ts` holds every spoken line. The director
+  (`Film.ts`) plays a scene's narration, fires its cues when their words are spoken (timings
+  come from forced alignment of the recorded audio, `public/vo/timing.json`), shows captions,
+  waits at gates for the visitor and acts for them if they sit back, and moves on.
+- **Scenes** (`src/scenes/`). One module per scene. The contract they are written against is
+  in [docs/SCENES.md](docs/SCENES.md); the direction for each is in [docs/SHOTS.md](docs/SHOTS.md).
+- **The mathematics** (`src/systems`, `src/sim`, `src/fractal`, `src/world`). Thirteen
+  attractors defined once in GLSL and once in JavaScript, double pendulums, Lorenz-96, a
+  tumbling rigid body, boids, reaction-diffusion on a sphere, Lenia, Kuramoto oscillators, the
+  Bak-Tang-Wiesenfeld sandpile. Most have a `verify.ts` runnable with `pnpm tsx`.
+- **Sound** (`src/sound/audio.ts`). Narration streamed per segment, one music bed per act
+  ducked under the voice, and effects synthesised in the score's own language (breaths of
+  filtered air, soft knocks) through a shared reverb.
 
-Recording: `?film=1` turns the app into a frame-stepped renderer (`window.__film.step`,
-scripted camera, in-app captions); `scripts/promo/capture.mjs` renders the promo shot by shot
-from a GPU-backed headless Chrome and `scripts/promo/assemble.sh` cuts it with ffmpeg.
+Needs WebGL 2 with floating-point render targets: any current desktop browser and recent
+phones. The build is static; nothing runs on a server.
 
-Needs WebGL 2 with floating-point render targets (any current desktop browser).
-Add `?n=256` or `?n=1024` to the URL to change the particle texture size.
+## Publishing
+
+`BASE_PATH=/strange-attractors/ pnpm build`, then push `dist/` to the `gh-pages` branch
+(GitHub Pages serves it from there).
+
+## Credits
+
+Narration and music were generated with ElevenLabs. Coastline data from Natural Earth. The cat
+is by Alicja Koczaska (CC0).
