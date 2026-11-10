@@ -115,6 +115,9 @@ const heat: SceneFactory = (ctx) => {
       ctx.cancel('rho')
     },
 
+    // nothing to stage: the opening picture is already the thing to play with
+    explore() {},
+
     dispose() {
       flow.setParam(1, 28)
     },

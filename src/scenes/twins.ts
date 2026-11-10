@@ -134,6 +134,12 @@ const twins: SceneFactory = (ctx) => {
       }),
     ],
 
+    explore() {
+      launch(1e-6)
+      paths.rate = 2
+      plot = new Plot(engine.labels.root, 'br', 220, 120, 'the gap between them')
+    },
+
     update(dt) {
       paths.update(dt, engine.renderer.getPixelRatio())
       if (running) {

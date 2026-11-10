@@ -4,7 +4,9 @@
  *
  *   voice  one narration segment at a time, streamed (an <audio> element routed into the graph)
  *   music  one looping bed per act, cross-faded, ducked under the voice
- *   sfx    decoded one-shots
+ *   sfx    effects in the score's own language: breaths of filtered air and soft knocks, made
+ *          here and sent through the hall, so nothing is sharper or brighter than the music.
+ *          Only sounds of real things (a water drop) are recordings.
  *   notes  sine plucks through a shared reverb, for sonifying what a scene is doing
  *
  * Browsers only start audio inside a gesture: `arm()` starts the context on the first tap, click
@@ -222,13 +224,47 @@ class Sound {
 
   // ───────────── effects and notes ─────────────
 
-  /** start fetching and decoding an effect: public/sfx/<name>.mp3 */
+  /** start fetching and decoding a recorded effect: public/sfx/<name>.mp3 */
   prefetch(name: string) {
-    void this.buffer(`sfx/${name}.mp3`)
+    if (name === 'drip') void this.buffer(`sfx/${name}.mp3`)
   }
 
-  /** play a recorded effect */
+  /**
+   * Play an effect by name. `gain` scales it, `rate` shifts its pitch (recordings and knocks),
+   * `pan` is −1..1.
+   *
+   *   shimmer  a short breath rising: something changes shape
+   *   rise     a long breath rising: a reveal
+   *   release  a long breath falling away: something let go
+   *   fold     a low breath turning over
+   *   split    two soft knocks, the second lower: a parting
+   *   tick     one soft knock          turn  a lower one
+   *   drip     a water drop (recorded)
+   */
   sfx(name: string, gain = 1, rate = 1, pan = 0) {
+    switch (name) {
+      case 'shimmer':
+        return this.breath({ seconds: 1.5, from: 380, to: 900, gain: 0.5 * gain, pan })
+      case 'rise':
+        return this.breath({ seconds: 3.4, from: 230, to: 760, gain: 0.5 * gain, pan })
+      case 'release':
+        return this.breath({ seconds: 3.0, from: 620, to: 240, gain: 0.7 * gain, pan })
+      case 'fold':
+        return this.breath({ seconds: 2.8, from: 460, to: 190, gain: 0.6 * gain, pan })
+      case 'split':
+        this.knock(430 * rate, 0.5 * gain, pan - 0.25)
+        return this.knock(320 * rate, 0.4 * gain, pan + 0.25, 0.16)
+      case 'tick':
+        return this.knock(300 * rate, 0.6 * gain, pan)
+      case 'turn':
+        return this.knock(220 * rate, 0.6 * gain, pan)
+      default:
+        return this.recorded(name, gain, rate, pan)
+    }
+  }
+
+  /** a recorded one-shot: public/sfx/<name>.mp3 */
+  private recorded(name: string, gain: number, rate: number, pan: number) {
     if (!this.ctx || !this.sfxBus) return
     const ctx = this.ctx
     const out = this.sfxBus
@@ -241,9 +277,95 @@ class Sound {
       g.gain.value = gain
       const p = ctx.createStereoPanner()
       p.pan.value = pan
-      src.connect(g).connect(p).connect(out)
+      // take the edge off: nothing in the film is brighter than its music
+      const soften = ctx.createBiquadFilter()
+      soften.type = 'lowpass'
+      soften.frequency.value = 3200
+      src.connect(soften).connect(g).connect(p).connect(out)
+      if (this.reverb) {
+        const send = ctx.createGain()
+        send.gain.value = 0.5
+        p.connect(send).connect(this.reverb)
+      }
       src.start()
     })
+  }
+
+  /**
+   * A breath: air through a slowly moving band-pass, swelling and dying away, mostly heard as
+   * its tail in the hall. No attack, no pitch, nothing above a couple of kilohertz.
+   */
+  private breath(o: { seconds: number; from: number; to: number; gain: number; pan?: number }) {
+    const ctx = this.ctx
+    if (!ctx || !this.sfxBus || !this.reverb || ctx.state !== 'running') return
+    const t = ctx.currentTime
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuffer(ctx)
+    src.loop = true
+    const band = ctx.createBiquadFilter()
+    band.type = 'bandpass'
+    band.Q.value = 0.8
+    band.frequency.setValueAtTime(o.from, t)
+    band.frequency.exponentialRampToValueAtTime(o.to, t + o.seconds)
+    const dark = ctx.createBiquadFilter()
+    dark.type = 'lowpass'
+    dark.frequency.value = 1800
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.linearRampToValueAtTime(o.gain, t + o.seconds * 0.42)
+    g.gain.linearRampToValueAtTime(0.0001, t + o.seconds)
+    const p = ctx.createStereoPanner()
+    p.pan.value = o.pan ?? 0
+    src.connect(band).connect(dark).connect(g).connect(p)
+    const dry = ctx.createGain()
+    dry.gain.value = 0.45
+    p.connect(dry).connect(this.sfxBus)
+    const send = ctx.createGain()
+    send.gain.value = 0.9
+    p.connect(send).connect(this.reverb)
+    src.start(t)
+    src.stop(t + o.seconds + 0.05)
+  }
+
+  /** A soft knock: a few milliseconds of air through a resonant band, like a felt mallet on wood. */
+  private knock(freq: number, gain: number, pan = 0, delay = 0) {
+    const ctx = this.ctx
+    if (!ctx || !this.sfxBus || !this.reverb || ctx.state !== 'running') return
+    const t = ctx.currentTime + delay
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuffer(ctx)
+    const band = ctx.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = freq
+    band.Q.value = 5
+    const dark = ctx.createBiquadFilter()
+    dark.type = 'lowpass'
+    dark.frequency.value = 1200
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.linearRampToValueAtTime(gain, t + 0.012)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+    const p = ctx.createStereoPanner()
+    p.pan.value = Math.max(-1, Math.min(1, pan))
+    src.connect(band).connect(dark).connect(g).connect(p)
+    p.connect(this.sfxBus)
+    const send = ctx.createGain()
+    send.gain.value = 0.7
+    p.connect(send).connect(this.reverb)
+    src.start(t, Math.random() * 1.5)
+    src.stop(t + 0.3)
+  }
+
+  private noise: AudioBuffer | null = null
+  private noiseBuffer(ctx: AudioContext): AudioBuffer {
+    if (!this.noise) {
+      const n = ctx.sampleRate * 2
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate)
+      const d = buf.getChannelData(0)
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1
+      this.noise = buf
+    }
+    return this.noise
   }
 
   /**

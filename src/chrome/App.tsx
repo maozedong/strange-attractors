@@ -117,7 +117,7 @@ export default function App() {
       const s = useFilm.getState()
       const key = e.key.toLowerCase()
       if (key === 'escape') {
-        if (s.indexOpen) useFilm.setState({ indexOpen: false })
+        if (s.indexOpen) useFilm.setState({ indexOpen: false, indexExplore: false })
         else if (s.lab) film.setLab(false)
         return
       }
@@ -132,7 +132,7 @@ export default function App() {
       else if (key === 'arrowleft') film.prev()
       else if (key === 'c') setCaptions(!s.captions)
       else if (key === 'm') sound.setMuted(!sound.muted)
-      else if (key === 'l' && s.status !== 'title' && s.labAvailable) film.setLab(!s.lab)
+      else if ((key === 'e' || key === 'l') && s.status !== 'title' && s.status !== 'ended') film.setLab(!s.lab)
       else if (key === 's') useFilm.setState({ indexOpen: true })
       else if (key === 'f') toggleFullscreen()
     }
@@ -143,7 +143,7 @@ export default function App() {
   const playing = status !== 'title' && status !== 'ended'
 
   return (
-    <div className={`film${idle && playing ? ' is-idle' : ''}`} ref={host}>
+    <div className={`film${idle && playing && !lab ? ' is-idle' : ''}${lab ? ' is-lab' : ''}`} ref={host}>
       <div className="over">
         {error ? (
           <Unsupported reason={error} />
@@ -176,20 +176,27 @@ function Start({ resumeAt }: { resumeAt: number }) {
     <section className="start" aria-label="Strange Attractors">
       <h1 className="sr-only">Strange Attractors</h1>
       <p className="start__what">A film about chaos, fractals and the order that appears from nothing. Every point of light is computed as you watch.</p>
-      <button className="begin" onClick={() => film?.begin(0)} disabled={!ready} autoFocus>
-        Begin
-      </button>
-      <div className="start__more">
-        <span>{minutes} minutes, narrated. Best with sound.</span>
-        {resumeAt > 0 && (
-          <button className="link" onClick={() => film?.begin(resumeAt)}>
-            Continue from “{SCREENPLAY[resumeAt].title}”
+      <div className="start__ways">
+        <div className="way">
+          <button className="begin begin--main" onClick={() => film?.begin(0, false)} disabled={!ready} autoFocus>
+            Watch the film
           </button>
-        )}
-        <button className="link" onClick={() => useFilm.setState({ indexOpen: true })}>
-          Choose a scene
-        </button>
+          <span>{minutes} minutes, narrated. Best with sound.</span>
+        </div>
+        <div className="way">
+          <button className="begin" onClick={() => useFilm.setState({ indexOpen: true, indexExplore: true })} disabled={!ready}>
+            Explore on your own
+          </button>
+          <span>Every scene, with its dials in your hands.</span>
+        </div>
       </div>
+      {resumeAt > 0 && (
+        <div className="start__more">
+          <button className="link" onClick={() => film?.begin(resumeAt, false)}>
+            Continue the film from “{SCREENPLAY[resumeAt].title}”
+          </button>
+        </div>
+      )}
     </section>
   )
 }
@@ -236,6 +243,47 @@ function Stage() {
   )
 }
 
+const HINT_KEY = 'strange-attractors:explore-hint'
+
+/**
+ * Once, a little way into the first scene after the prologue, point at the Explore switch.
+ * Never again after the visitor has used the switch or seen the hint.
+ */
+function useExploreHint(index: number, lab: boolean): boolean {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    const done = () => {
+      try {
+        localStorage.setItem(HINT_KEY, '1')
+      } catch {
+        /* private mode */
+      }
+    }
+    if (lab) {
+      done()
+      setShow(false)
+      return
+    }
+    let seen = false
+    try {
+      seen = localStorage.getItem(HINT_KEY) === '1'
+    } catch {
+      /* private mode */
+    }
+    if (seen || index < 1) return
+    const on = window.setTimeout(() => setShow(true), 8000)
+    const off = window.setTimeout(() => {
+      setShow(false)
+      done()
+    }, 22000)
+    return () => {
+      window.clearTimeout(on)
+      window.clearTimeout(off)
+    }
+  }, [index >= 1, lab])
+  return show
+}
+
 function Bar() {
   const status = useFilm((s) => s.status)
   const index = useFilm((s) => s.index)
@@ -243,7 +291,7 @@ function Bar() {
   const sceneTime = useFilm((s) => s.sceneTime)
   const captions = useFilm((s) => s.captions)
   const lab = useFilm((s) => s.lab)
-  const labAvailable = useFilm((s) => s.labAvailable)
+  const hint = useExploreHint(index, lab)
   useSound()
 
   const total = useMemo(() => durations.reduce((a, b) => a + b, 0), [durations])
@@ -260,8 +308,8 @@ function Bar() {
       </button>
       <footer className="bar">
         <div className="bar__group bar__play">
-          <button className="icon icon--play" onClick={() => film?.toggle()} aria-label={paused ? 'Play' : 'Pause'} title="Space">
-            <Icon name={paused ? 'play' : 'pause'} />
+          <button className="icon icon--play" onClick={() => film?.toggle()} aria-label={lab ? 'Back to the film' : paused ? 'Play' : 'Pause'} title="Space">
+            <Icon name={paused || lab ? 'play' : 'pause'} />
           </button>
           <button className="icon icon--wide" onClick={() => film?.prev()} aria-label="Previous scene" title="←">
             <Icon name="prev" />
@@ -307,17 +355,26 @@ function Bar() {
         </div>
 
         <div className="bar__group bar__tools">
+          <div className="mode" role="group" aria-label="Mode">
+            <button aria-pressed={!lab} onClick={() => film?.setLab(false)} title="Watch the film">
+              Watch
+            </button>
+            <button aria-pressed={lab} onClick={() => film?.setLab(true)} title="Stop the film here and take the controls (E)">
+              <Icon name="lab" />
+              Explore
+            </button>
+            {hint && (
+              <span className="mode__hint" role="status">
+                Want to play with it? Switch to Explore. The film waits for you.
+              </span>
+            )}
+          </div>
           <button className="icon" onClick={() => setCaptions(!captions)} aria-pressed={captions} aria-label="Captions" title="Captions (C)">
             <Icon name="captions" />
           </button>
           <button className="icon" onClick={() => sound.setMuted(!sound.muted)} aria-pressed={!sound.muted} aria-label="Sound" title="Sound (M)">
             <Icon name={sound.muted ? 'mute' : 'sound'} />
           </button>
-          {labAvailable && (
-            <button className="icon" onClick={() => film?.setLab(!lab)} aria-pressed={lab} aria-label="Explore this scene" title="Explore this scene (L)">
-              <Icon name="lab" />
-            </button>
-          )}
           <button className="icon" onClick={() => useFilm.setState({ indexOpen: true })} aria-label="Scenes" title="Scenes (S)">
             <Icon name="scenes" />
           </button>
@@ -333,12 +390,18 @@ function Bar() {
 function SceneIndex() {
   const index = useFilm((s) => s.index)
   const durations = useFilm((s) => s.durations)
-  const close = () => useFilm.setState({ indexOpen: false })
+  const lab = useFilm((s) => s.lab)
+  const pick = useFilm((s) => s.indexExplore)
+  const exploring = pick || lab
+  const close = () => useFilm.setState({ indexOpen: false, indexExplore: false })
   return (
     <section className="index" aria-label="Scenes">
       <div className="index__inner">
         <header className="index__head">
-          <h2>Scenes</h2>
+          <div>
+            <h2>{exploring ? 'Explore' : 'Scenes'}</h2>
+            <p>{exploring ? 'Pick a scene. It opens with its dials and notes, and no narration.' : 'Pick a scene. The film plays on from there.'}</p>
+          </div>
           <button className="link" onClick={close} autoFocus>
             Close
           </button>
@@ -363,11 +426,11 @@ function SceneIndex() {
                           aria-current={i === index ? 'true' : undefined}
                           onClick={() => {
                             close()
-                            film?.begin(i)
+                            film?.begin(i, exploring)
                           }}
                         >
                           {s.title}
-                          <span>{clock(durations[i] ?? 0)}</span>
+                          {!exploring && <span>{clock(durations[i] ?? 0)}</span>}
                         </button>
                       </li>
                     ))}
@@ -449,24 +512,42 @@ function Lab() {
   const scene = film?.scene
   const script = SCREENPLAY[index]
   if (!scene || !script) return null
+  const prev = SCREENPLAY[index - 1]
+  const next = SCREENPLAY[index + 1]
+  const empty = !scene.lab?.length && !scene.notes?.length
   return (
     <aside className="lab" aria-label="Explore this scene">
       <div className="lab__head">
-        <span>The film is waiting. This scene is yours.</span>
+        <span>Exploring. The film is waiting.</span>
+        <button className="link" onClick={() => useFilm.setState({ indexOpen: true })}>
+          All scenes
+        </button>
       </div>
       <h2>{script.title}</h2>
       <div className="lab__scroll">
         {scene.lab && scene.lab.length > 0 && (
           <div className="lab__controls">
             {scene.lab.map((c, i) => (
-              <Control c={c} key={i} />
+              <Control c={c} key={`${script.id}:${i}`} />
             ))}
           </div>
         )}
-        <div className="lab__notes">{scene.notes?.map((p, i) => <p key={i}>{p}</p>)}</div>
+        <div className="lab__notes">
+          {scene.notes?.map((p, i) => <p key={i}>{p}</p>)}
+          {empty && <p>Drag to look around; scroll or pinch to move in.</p>}
+        </div>
       </div>
+      <nav className="lab__nav" aria-label="Other scenes">
+        <button className="link" disabled={!prev} onClick={() => film?.prev()}>
+          {prev ? `‹ ${prev.title}` : ''}
+        </button>
+        <button className="link" disabled={!next} onClick={() => film?.next()}>
+          {next ? `${next.title} ›` : ''}
+        </button>
+      </nav>
       <div className="lab__foot">
-        <button className="action" onClick={() => film?.setLab(false)}>
+        <button className="action action--main" onClick={() => film?.setLab(false)}>
+          <Icon name="play" />
           Back to the film
         </button>
       </div>
@@ -482,8 +563,8 @@ function End() {
         <button className="begin" onClick={() => film?.begin(0)}>
           Watch again
         </button>
-        <button className="begin" onClick={() => useFilm.setState({ indexOpen: true })}>
-          Choose a scene
+        <button className="begin" onClick={() => useFilm.setState({ indexOpen: true, indexExplore: true })}>
+          Explore on your own
         </button>
       </div>
       <div className="start__more">

@@ -73,6 +73,12 @@ const scene: SceneFactory = (ctx) => {
       }),
     ],
 
+    explore() {
+      paths.opacity = 1
+      ctx.tween(3.4, (u) => (dust.look.gain = 0.07 + 0.43 * u))
+      gap = readout(ctx)
+    },
+
     update(dt) {
       if (!ending) paths.update(dt, engine.renderer.getPixelRatio())
       else {

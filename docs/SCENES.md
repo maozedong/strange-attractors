@@ -43,6 +43,7 @@ const scene: SceneFactory = (ctx) => {
     cues: [at(2, () => {})], // things that happen on the narrator's words
     gates: { name() {} },  // what a gate does when the visitor (or its timeout) opens it
     update(dt, t) {},      // every frame; t = seconds since this scene's first word
+    explore() {},          // set up for play when the visitor arrives in explore mode (no narration)
     exit() {},             // start fading props; the next scene takes the dust
     dispose() {},          // free GPU resources
     lab: [],               // dials for the "Explore this scene" drawer
@@ -159,7 +160,16 @@ use it to make events audible (a drip, a tick, a flash locking into step), quiet
 and never more than a few per second. `sound.sfx('release' | 'shimmer' | 'rise' | 'drip' | 'tick' | 'turn' | 'split' | 'fold')`
 plays a recorded effect. The score and the mix are handled centrally.
 
-### The lab and the notes
+### Explore mode, the lab and the notes
+
+The film has two modes. Watching, the narrator drives. Exploring (the Explore switch in the
+bar, or "Explore on your own" at the start) there is no narration and no captions: a drawer
+shows the scene's dials and notes, and the visitor moves between scenes while staying in
+explore mode. A scene the visitor arrives at this way must be worth playing with at once:
+implement `explore()` to put it in its most interesting hands-on state (the finished diagram,
+the simulation running, the controls primed), calling the same functions your lab controls
+call. It runs right after `enter()`, and the cues never fire. Without `explore()` the scene
+performs its cues once in silence and then holds, which is a poor fallback.
 
 Every scene has `notes`: two or three plain paragraphs that go deeper than the narration (the
 old wall text in `src/content/chapters.tsx` / `wing5.tsx` is the starting point; keep it

@@ -85,6 +85,9 @@ const shape: SceneFactory = (ctx) => {
       at(8, 2.5, () => markEyes(false)),
     ],
 
+    // nothing to stage: the opening picture is already the thing to play with
+    explore() {},
+
     dispose() {
       // the butterfly stays
     },

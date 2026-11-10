@@ -163,6 +163,8 @@ const rounding: SceneFactory = (ctx) => {
   let oldRate = 0
   let freshRate = 0
   let rounded = false
+  /** arrived in explore mode: show the finished comparison instead of performing it */
+  let exploring = false
   let chasing: 'old' | 'fresh' | null = 'old'
   const head = new THREE.Vector3()
   const anchor = new THREE.Vector3()
@@ -199,6 +201,7 @@ const rounding: SceneFactory = (ctx) => {
       // the record starts drawing once the title has let go, and runs across the first four lines
       ctx.after(2.4, () => {
         ctx.tween(1.6, (u) => (opacity = u), { ease: easeOut })
+        if (exploring) return
         oldRate = (a.n - 1) / Math.max(8, ctx.until(3) + 1.5)
         old.drawn = 1
         rig.track(chase)
@@ -251,6 +254,16 @@ const rounding: SceneFactory = (ctx) => {
 
     gates: { round },
 
+    explore() {
+      // both runs, whole, side by side: the record and the rerun from the rounded number
+      exploring = true
+      rounded = true
+      chasing = null
+      old.drawn = a.n - 1
+      fresh.drawn = b.n - 1
+      rig.shot({ target: [(split * SAMPLE) * KX * 0.5 + 0.6, 0, 0], distance: 4.2, azimuth: 0, elevation: 0, orbit: 0, aperture: 0.002 }, 3)
+    },
+
     update(dt) {
       if (old.drawn >= 1) old.drawn = Math.min(a.n - 1, old.drawn + oldRate * dt)
       if (fresh.drawn >= 1) fresh.drawn = Math.min(b.n - 1, fresh.drawn + freshRate * dt)
@@ -268,6 +281,38 @@ const rounding: SceneFactory = (ctx) => {
       fresh.dispose()
     },
 
+    lab: [
+      {
+        kind: 'choice',
+        label: 'Draw the two runs',
+        options: [
+          { value: 'time', label: 'against time' },
+          { value: 'space', label: 'in space' },
+        ],
+        get: () => (fold > 0.5 ? 'space' : 'time'),
+        set: (v) => {
+          const from = fold
+          const to = v === 'space' ? 1 : 0
+          if (from === to) return
+          sound.sfx('fold', 0.7)
+          ctx.tween(5, (u) => (fold = from + (to - from) * u), { ease: easeInOut, tag: 'fold' })
+          ctx.tween(5, (u) => (opacity = to === 1 ? 1 - 0.5 * u : 0.5 + 0.5 * u), { tag: 'opacity' })
+          if (to === 1) rig.shot({ target: [0, -0.24, 0], distance: 3.85, azimuth: 28, elevation: 11, orbit: 2.5, aperture: 0.004 }, 5)
+          else rig.shot({ target: [(split * SAMPLE) * KX * 0.5 + 0.6, 0, 0], distance: 4.2, azimuth: 0, elevation: 0, orbit: 0, aperture: 0.002 }, 5)
+        },
+      },
+      {
+        kind: 'action',
+        label: 'Run them again',
+        run: () => {
+          rounded = true
+          old.drawn = a.n - 1
+          fresh.drawn = 1
+          freshRate = (b.n - 1) / 9
+        },
+      },
+      { kind: 'readout', label: 'They part after', get: () => `${(split * SAMPLE).toFixed(1)} units of time` },
+    ],
     notes: [
       'In the winter of 1961 Edward Lorenz was running a twelve-variable model of the atmosphere on a Royal McBee LGP-30. To repeat part of a run he typed in the state from a printout, which showed three decimal places; the machine worked with six. The printout said 0.506. The machine had been holding 0.506127.',
       'The record drawn here is from the three-equation system he published two years later, in "Deterministic Nonperiodic Flow". The restarted run differs from the original by exactly that rounding, and nothing else.',

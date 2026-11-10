@@ -26,10 +26,13 @@ export interface FilmState {
   /** scene title, shown for a few seconds as the scene opens */
   slate: { title: string; key: number } | null
   loading: boolean
+  /** explore mode: the narration is off and the scene is in the visitor's hands */
   lab: boolean
   labAvailable: boolean
   captions: boolean
   indexOpen: boolean
+  /** scenes picked from the index open in explore mode */
+  indexExplore: boolean
 }
 
 const CAPTIONS_KEY = 'strange-attractors:captions'
@@ -60,6 +63,7 @@ export const useFilm = create<FilmState>(() => ({
   labAvailable: false,
   captions: savedCaptions(),
   indexOpen: false,
+  indexExplore: false,
 }))
 
 export function setCaptions(on: boolean) {

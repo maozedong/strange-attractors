@@ -98,6 +98,9 @@ const swarm: SceneFactory = (ctx) => {
 
     gates: { release },
 
+    // the packed ball is the starting position; "Let them go" is in the drawer
+    explore() {},
+
     update() {
       if (released) clock?.set(`time  ${flow.simTime.toFixed(1)}`)
       if (released) {

@@ -377,10 +377,51 @@ button {
   transition: background 0.3s var(--ease), border-color 0.3s var(--ease), color 0.3s var(--ease);
 }
 
+.begin {
+  white-space: nowrap;
+}
+
 .begin:hover {
   background: var(--ink);
   border-color: var(--ink);
   color: #0a0a14;
+}
+
+.start__ways {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 34px;
+}
+
+.way {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 15em;
+}
+
+.way span {
+  font-size: 14.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+  text-wrap: balance;
+}
+
+.begin--main {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #0a0a14;
+}
+
+.begin--main:hover {
+  background: #fff;
+  border-color: #fff;
+}
+
+.begin:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .start__more {
@@ -683,6 +724,72 @@ button {
   stroke-linejoin: round;
 }
 
+/* the two ways to be here: watching, or exploring */
+.mode {
+  position: relative;
+  display: flex;
+  margin: 0 8px 0 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(8, 8, 18, 0.4);
+}
+
+.mode button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 13px 1px;
+  border-radius: 999px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+  transition: background 0.25s var(--ease), color 0.25s var(--ease);
+}
+
+.mode button:hover {
+  color: var(--ink);
+}
+
+.mode button[aria-pressed='true'] {
+  background: var(--ink);
+  color: #0a0a14;
+}
+
+.mode svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.mode__hint {
+  position: absolute;
+  right: -168px;
+  bottom: calc(100% + 16px);
+  width: max-content;
+  max-width: min(19em, 80vw);
+  padding: 10px 16px 11px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #0a0a14;
+  font-size: 15px;
+  line-height: 1.35;
+  text-wrap: balance;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  animation: arrive 0.6s var(--ease) both;
+  pointer-events: none;
+}
+
+/* while the hint is up, keep the bar on screen */
+.film:has(.mode__hint) .bar,
+.film:has(.mode__hint) .mark {
+  opacity: 1;
+  transform: none;
+}
+
 .icon--play {
   width: 46px;
   height: 46px;
@@ -694,6 +801,21 @@ button {
   height: 22px;
   fill: currentColor;
   stroke: none;
+}
+
+/* exploring: the drawer has the right of the screen, so the bar keeps to the left of it */
+.is-lab .bar {
+  right: min(360px, 100%);
+  padding-right: 18px;
+}
+
+.is-lab .bar .icon--wide,
+.is-lab .strip__time {
+  display: none;
+}
+
+.is-lab .plot--br {
+  right: calc(min(360px, 100%) + var(--pad));
 }
 
 /* the film strip: one segment per scene, grouped by act */
@@ -829,6 +951,13 @@ button {
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: clamp(24px, 5vh, 54px);
+}
+
+.index__head p {
+  margin: 12px 0 0;
+  font-size: 16px;
+  font-style: italic;
+  color: var(--ink-3);
 }
 
 .index__head h2 {
@@ -1125,9 +1254,47 @@ input[type='range']::-moz-range-thumb {
   color: var(--ink-2);
 }
 
+.lab__nav {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+}
+
+.lab__nav .link {
+  text-align: left;
+  max-width: 48%;
+}
+
+.lab__nav .link:last-child {
+  text-align: right;
+}
+
 .lab__foot {
   flex: none;
   padding-top: 16px;
+}
+
+.action--main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #0a0a14;
+}
+
+.action--main:hover {
+  background: #fff;
+}
+
+.action--main svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 /* ---------- end: the same place as the start, under the title the dust has re-formed ---------- */
@@ -1222,6 +1389,25 @@ input[type='range']::-moz-range-thumb {
 
   .icon--wide {
     display: none;
+  }
+
+  .mode button {
+    padding: 0 10px 1px;
+    font-size: 13.5px;
+  }
+
+  .mode__hint {
+    right: -60px;
+  }
+
+  /* the drawer is a sheet over the bottom of the screen and carries its own way back */
+  .is-lab .bar {
+    display: none;
+  }
+
+  .is-lab .plot--br {
+    right: var(--pad);
+    bottom: calc(62% + 16px);
   }
 
   .start {

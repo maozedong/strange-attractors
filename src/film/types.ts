@@ -92,6 +92,13 @@ export interface Scene {
   cues?: Cue[]
   /** what each gate does when it opens (by the visitor or by its timeout) */
   gates?: Record<string, () => void>
+  /**
+   * Set the scene up for exploring by hand: called instead of running the cues when the visitor
+   * arrives here in explore mode (no narration). Leave the picture in a state worth playing
+   * with, using the same functions your lab controls call. Without it the scene performs its
+   * cues once, silently, and then holds.
+   */
+  explore?(): void
   /** every frame; `t` is the scene clock */
   update?(dt: number, t: number): void
   /** begin leaving: fade props out. The dust is taken over by the next scene. */

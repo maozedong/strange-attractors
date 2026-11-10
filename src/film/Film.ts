@@ -78,6 +78,8 @@ interface Running {
   clip: VoiceClip | null
   caption: number
   alive: boolean
+  /** entered in explore mode: no narration, no captions, and the film does not move on */
+  silent: boolean
 }
 
 function estimate(seg: Segment): SegmentTiming {
@@ -146,15 +148,17 @@ export class Film {
 
   // ───────────── transport ─────────────
 
-  /** start (or restart) the film at a scene */
-  begin(index = 0) {
+  /** start (or restart) at a scene; `explore` chooses the mode, otherwise the current one is kept */
+  begin(index = 0, explore?: boolean) {
     sound.unlock()
-    for (const name of ['release', 'shimmer', 'split', 'rise', 'drip', 'tick', 'turn', 'fold']) sound.prefetch(name)
-    void this.goto(index)
+    sound.prefetch('drip')
+    void this.goto(index, explore)
   }
 
   toggle() {
     const s = useFilm.getState()
+    // in explore mode the play button means "back to the film"
+    if (s.lab) return this.setLab(false)
     if (s.status === 'playing' || s.status === 'gate') this.pause()
     else if (s.status === 'paused') this.resume()
     else if (s.status === 'ended') this.begin(0)
@@ -187,8 +191,8 @@ export class Film {
   prev() {
     const c = this.cur
     if (!c) return
-    // early in a scene, go to the one before; later, restart this one
-    void this.goto(c.t < 4 && c.index > 0 ? c.index - 1 : c.index)
+    // early in a scene (or when exploring), go to the one before; later, restart this one
+    void this.goto((c.t < 4 || c.silent) && c.index > 0 ? c.index - 1 : c.index)
   }
 
   replay() {
@@ -200,41 +204,53 @@ export class Film {
     const c = this.cur
     if (!c || c.phase !== 'gate') return
     const gate = c.segments[c.seg].gate
-    useFilm.setState({ prompt: null, status: 'playing' })
+    if (useFilm.getState().status === 'gate') useFilm.setState({ prompt: null, status: 'playing' })
     if (gate) c.scene.gates?.[gate.gate]?.()
     this.startSegment(c, c.seg + 1)
   }
 
-  /** hand the scene to the visitor: narration and cues stop, the simulation keeps running */
+  /**
+   * Explore mode on or off. On: the narration stops where it is and the scene is the visitor's;
+   * moving to other scenes stays in explore mode. Off: the film picks up again, from where it
+   * was paused, or from the top of the scene if the visitor arrived here while exploring.
+   */
   setLab(on: boolean) {
     const s = useFilm.getState()
     if (on === s.lab) return
     const c = this.cur
+    if (!c || c.index < 0) return
     if (on) {
       if (s.status === 'paused') this.resume()
-      c?.clip?.pause()
+      c.clip?.pause()
       this.engine.rig.free = true
-      useFilm.setState({ lab: true, prompt: null, caption: null })
+      useFilm.setState({ lab: true, prompt: null, caption: null, card: null, slate: null })
+    } else if (c.silent) {
+      void this.goto(c.index, false)
     } else {
       this.engine.rig.free = false
       this.engine.rig.recentre(1.5)
       useFilm.setState({ lab: false })
-      if (c && c.phase === 'speaking') c.clip?.play(c.segTime)
-      if (c && c.phase === 'gate') useFilm.setState({ prompt: c.segments[c.seg].gate?.prompt ?? null })
+      if (c.phase === 'speaking') c.clip?.play(c.segTime)
+      if (c.phase === 'gate') useFilm.setState({ prompt: c.segments[c.seg].gate?.prompt ?? null })
     }
   }
 
-  /** jump to a scene and play it from its first word */
-  async goto(index: number) {
+  /**
+   * Jump to a scene. In film mode it plays from its first word. In explore mode (`explore`, or
+   * the mode the visitor is already in) there is no narration: the scene sets itself up to be
+   * played with, and the film stays put until they leave or switch back.
+   */
+  async goto(index: number, explore?: boolean) {
     const script = SCREENPLAY[index]
     if (!script) return
     const token = ++this.token
     const prev = this.cur
     const prevAct = prev ? prev.script.act : -1
+    const exploring = explore ?? useFilm.getState().lab
 
     this.engine.paused = false
-    this.engine.rig.free = false
-    useFilm.setState({ status: 'playing', index, caption: null, prompt: null, lab: false, loading: true, started: true, slate: null })
+    this.engine.rig.free = exploring
+    useFilm.setState({ status: 'playing', index, caption: null, prompt: null, card: null, lab: exploring, loading: true, started: true, slate: null, sceneTime: 0 })
 
     const factory = await this.module(script.id)
     if (token !== this.token) return
@@ -252,15 +268,22 @@ export class Film {
 
     const run = this.mount(index, script, factory)
     this.cur = run
+    run.silent = exploring
     run.scene.enter(prev ? prev.script.id : null)
 
     const info = ACTS.find((a) => a.act === script.act)
-    const card = newAct && script.act >= 1 && script.act <= 5 && info ? info : null
+    const card = !exploring && newAct && script.act >= 1 && script.act <= 5 && info ? info : null
     run.phaseClock = card ? CARD_SECONDS : LEAD
-    useFilm.setState({ loading: false, card, labAvailable: !!run.scene.lab?.length || !!run.scene.notes?.length })
+    useFilm.setState({ loading: false, card, labAvailable: true })
     if (card) {
       sound.sfx('rise', 0.3)
       run.timers.push({ left: CARD_SECONDS - 0.5, fn: () => useFilm.setState({ card: null }) })
+    }
+    if (exploring && run.scene.explore) {
+      // the scene knows how to set itself up for play: skip the performance altogether
+      run.cues = []
+      run.phase = 'done'
+      run.scene.explore()
     }
 
     // warm up what comes next
@@ -290,7 +313,9 @@ export class Film {
     const c = this.cur
     if (!c) return
     const state = useFilm.getState()
-    const holding = state.lab || state.status === 'title' || state.status === 'ended'
+    // the clock stops while the visitor explores a scene the film was narrating; a scene entered
+    // in explore mode performs silently instead (unless it set itself up with `explore`)
+    const holding = (state.lab && !c.silent) || state.status === 'title' || state.status === 'ended'
 
     this.advance(c, dt)
 
@@ -298,8 +323,10 @@ export class Film {
       if (c.phase === 'lead') {
         c.phaseClock -= dt
         if (c.phaseClock <= 0) {
-          useFilm.setState({ slate: { title: c.script.title, key: c.index } })
-          c.timers.push({ left: 4.2, fn: () => useFilm.getState().slate?.key === c.index && useFilm.setState({ slate: null }) })
+          if (!c.silent) {
+            useFilm.setState({ slate: { title: c.script.title, key: c.index } })
+            c.timers.push({ left: 4.2, fn: () => useFilm.getState().slate?.key === c.index && useFilm.setState({ slate: null }) })
+          }
           this.startSegment(c, 0)
         }
       } else if (c.phase === 'speaking') {
@@ -309,7 +336,7 @@ export class Film {
         const heard = c.clip?.time ?? NaN
         if (this.engine.speed === 1 && Number.isFinite(heard) && Math.abs(heard - c.segTime) > 0.12) c.segTime = heard
         this.fire(c)
-        this.caption(c)
+        if (!c.silent) this.caption(c)
         if (c.segTime >= c.timing[c.seg].dur + 0.15) this.endSegment(c)
       } else if (c.phase === 'gate') {
         c.t += dt
@@ -322,6 +349,8 @@ export class Film {
         this.fire(c)
         if (c.phaseClock <= 0) {
           c.phase = 'done'
+          // an explored scene stays where it is; the film moves on
+          if (c.silent) return
           if (c.index >= SCREENPLAY.length - 1) this.end()
           else void this.goto(c.index + 1)
         }
@@ -370,6 +399,8 @@ export class Film {
     c.caption = -1
     c.phase = 'speaking'
     c.clip?.stop()
+    c.clip = null
+    if (c.silent) return
     c.clip = sound.voice(segmentStem(c.script.id, seg))
     if (this.engine.speed === 1) c.clip.play(0)
   }
@@ -378,7 +409,11 @@ export class Film {
     c.clip?.stop()
     const gate = c.segments[c.seg].gate
     useFilm.setState({ caption: null })
-    if (gate) {
+    if (gate && c.silent) {
+      // nobody is being asked: open it after a beat
+      c.phase = 'gate'
+      c.phaseClock = 1.2
+    } else if (gate) {
       c.phase = 'gate'
       c.phaseClock = gate.timeout
       useFilm.setState({ prompt: gate.prompt, status: 'gate' })
@@ -471,6 +506,7 @@ export class Film {
       clip: null,
       caption: -1,
       alive: true,
+      silent: false,
     }
     run.scene = factory(this.context(run))
     run.cues = (run.scene.cues ?? []).map((cue) => this.resolve(run, cue))

@@ -72,6 +72,9 @@ const zoo: SceneFactory = (ctx) => {
       plate?.remove()
     },
 
+    // nothing to stage: the opening picture is already the thing to play with
+    explore() {},
+
     dispose() {
       for (const s of made) s.dispose()
     },
