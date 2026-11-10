@@ -32,7 +32,8 @@ function flash(theta: number): number {
   const x4 = x2 * x2
   const pulse = x4 * x2
   // the light lingers after the peak (θ just past 0) and has faded before the next
-  const after = theta < 3.8 ? 0.36 * Math.exp(-theta * 0.9) : 0
+  // (slowly: once the tree is in step, this fade is what the eye rests on between flashes)
+  const after = theta < 5.4 ? 0.52 * Math.exp(-theta * 0.42) * Math.min(1, (5.4 - theta) * 2) : 0
   // never fully dark: between flashes each firefly keeps a faint ember, so a tree in step is still a tree
   return Math.min(1, 0.07 + 0.93 * (pulse + after))
 }
