@@ -1449,3 +1449,17 @@ input[type='range']::-moz-range-thumb {
     animation: none;
   }
 }
+
+/* ---------- a screening (?cinema): the picture and its words, nothing to press ---------- */
+.is-cinema .stage {
+  cursor: none;
+}
+
+.is-cinema .captions {
+  bottom: clamp(26px, 6vh, 64px);
+}
+
+.is-cinema .prompt,
+.is-cinema .mark {
+  display: none;
+}

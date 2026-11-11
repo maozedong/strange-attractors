@@ -113,6 +113,11 @@ export class Film {
   private cur: Running | null = null
   private leaving: { run: Running; left: number }[] = []
   private token = 0
+  /**
+   * Nobody is at the controls (a screening, or the film being rendered to video): gates are not
+   * announced, and open by themselves after a beat.
+   */
+  cinema = false
   /** the title, shown before the film begins */
   private readonly titleFactory: SceneFactory | null
   private gestureArmed = false
@@ -418,6 +423,9 @@ export class Film {
       // nobody is being asked: open it after a beat
       c.phase = 'gate'
       c.phaseClock = 1.2
+    } else if (gate && this.cinema) {
+      c.phase = 'gate'
+      c.phaseClock = Math.min(2.6, gate.timeout * 0.5)
     } else if (gate) {
       c.phase = 'gate'
       c.phaseClock = gate.timeout

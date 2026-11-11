@@ -77,7 +77,9 @@ export class Engine {
     this.renderer.setClearColor(0x000000, 1)
     this.renderer.info.autoReset = true
 
-    this.maxDpr = Math.min(window.devicePixelRatio || 1, 2)
+    // ?dpr=3 lifts the cap, for rendering the film to video at sizes no screen asks for
+    const askedDpr = Number(new URLSearchParams(window.location.search).get('dpr'))
+    this.maxDpr = askedDpr >= 1 && askedDpr <= 4 ? askedDpr : Math.min(window.devicePixelRatio || 1, 2)
     this.dpr = this.maxDpr
     this.size = chooseDustSize()
 

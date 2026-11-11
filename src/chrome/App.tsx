@@ -35,6 +35,12 @@ function useSound() {
   )
 }
 
+/**
+ * ?cinema: a screening. No controls, no cursor, no requests to the visitor; the film is started
+ * from outside (Space still works) and gates open by themselves. Used to render the film to video.
+ */
+const CINEMA = new URLSearchParams(window.location.search).has('cinema')
+
 export default function App() {
   const host = useRef<HTMLDivElement>(null)
   const status = useFilm((s) => s.status)
@@ -50,6 +56,7 @@ export default function App() {
     try {
       const engine = new Engine(host.current)
       film = new Film(engine, SCENE_LOADERS, titleScene)
+      film.cinema = CINEMA
       sound.arm()
       engine.start()
       void film.init().then(() => {
@@ -58,6 +65,8 @@ export default function App() {
         const q = new URLSearchParams(window.location.search)
         const speed = Number(q.get('speed'))
         if (speed > 0) engine.speed = speed
+        const captions = q.get('captions')
+        if (captions === '0' || captions === '1') useFilm.setState({ captions: captions === '1' })
         const at = SCREENPLAY.findIndex((s) => s.id === q.get('scene'))
         if (at >= 0) film?.begin(at)
       })
@@ -144,19 +153,19 @@ export default function App() {
   const playing = status !== 'title' && status !== 'ended'
 
   return (
-    <div className={`film${idle && playing && !lab ? ' is-idle' : ''}${lab ? ' is-lab' : ''}`} ref={host}>
+    <div className={`film${idle && playing && !lab ? ' is-idle' : ''}${lab ? ' is-lab' : ''}${CINEMA ? ' is-cinema' : ''}`} ref={host}>
       <div className="over">
         {error ? (
           <Unsupported reason={error} />
         ) : (
           <>
-            {status === 'title' && <Start resumeAt={resumeAt} />}
+            {status === 'title' && !CINEMA && <Start resumeAt={resumeAt} />}
             {playing && <Stage />}
-            {playing && <Bar />}
-            {status === 'ended' && <End />}
+            {playing && !CINEMA && <Bar />}
+            {status === 'ended' && !CINEMA && <End />}
             {lab && <Lab />}
             {indexOpen && <SceneIndex />}
-            {playing && <SoundNotice />}
+            {playing && !CINEMA && <SoundNotice />}
           </>
         )}
       </div>
