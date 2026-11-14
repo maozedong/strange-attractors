@@ -13,7 +13,9 @@
     "score": "tsx scripts/score.ts",
     "render": "tsx scripts/render/render.ts",
     "mix": "tsx scripts/render/mix.ts",
-    "assemble": "tsx scripts/render/assemble.ts"
+    "assemble": "tsx scripts/render/assemble.ts",
+    "bench": "tsx scripts/bench.ts",
+    "stills": "tsx scripts/stills.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
