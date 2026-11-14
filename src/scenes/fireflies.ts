@@ -20,7 +20,7 @@ const FIREFLIES = 1500
 /** the fireflies' texture is FW × FW */
 const FW = 64
 /** share of the dust that draws the branches */
-const BRANCH_SHARE = 0.3
+const BRANCH_SHARE = 0.38
 /** tree units → world */
 const SCALE = 0.72
 const KC = criticalCoupling()
@@ -41,9 +41,9 @@ function flash(theta: number): number {
 const SEED = 7
 /** trunk, limbs, branches, twigs: radius (tree units) and how much of the bark's dust each gets per unit length */
 const BARK = [
-  { radius: 0.03, weight: 3.2 },
-  { radius: 0.017, weight: 1.9 },
-  { radius: 0.009, weight: 1.2 },
+  { radius: 0.03, weight: 6 },
+  { radius: 0.017, weight: 3 },
+  { radius: 0.009, weight: 1.4 },
   { radius: 0.004, weight: 0.8 },
 ]
 /** a few fireflies are heard: their flashes pluck notes from one chord */
@@ -66,9 +66,10 @@ void main() {
   vec4 b = texture2D(uBase, vUv);
   float i = particleIndex();
   if (b.w < 0.0) {
-    // bark: dark, lit a little by the tree's own light
+    // bark: dim, but a tree you can see before any firefly lights it; the trunk a shade
+    // brighter than the twigs, and all of it lit a little by the tree's own light
     float level = -b.w - 1.0;
-    float tone = 0.15 - 0.018 * level + 0.07 * uGlow;
+    float tone = 0.25 - 0.025 * level + 0.08 * uGlow;
     gl_FragColor = vec4(b.xyz, tone);
     return;
   }
