@@ -1,8 +1,8 @@
 /**
  * The lens and the film stock. Everything is rendered into a half-float buffer, so light adds up
  * past white; two blooms (a tight one for sparkle, a very wide faint one for halation) spread it,
- * a filmic curve brings it back into range, and a last pass adds vignette, grain and a trace of
- * colour fringing at the edges of the frame.
+ * a filmic curve brings it back into range, and a last pass adds vignette, a trace of colour
+ * fringing at the edges of the frame, and the dither that keeps dark gradients smooth.
  */
 import * as THREE from 'three'
 import { BloomEffect, Effect, EffectComposer, EffectPass, RenderPass, ToneMappingEffect, ToneMappingMode, BlendFunction } from 'postprocessing'
@@ -35,12 +35,17 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
   col *= 1.0 - uVignette * smoothstep(0.08, 0.62, r2 * (1.0 + 0.35 * abs(c.x)));
 
-  // grain: finer than a pixel is impossible, so vary it per frame instead
-  float g = rnd(uv * resolution + fract(time) * 917.0) - 0.5;
-  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
-  col += g * uGrain * (0.6 + 0.8 * (1.0 - luma));
+  col *= uFade;
 
-  outputColor = vec4(col * uFade, inputColor.a);
+  // The last thing before eight bits: a dither one display step wide, so the dark gradients of
+  // the room do not band. It is added to the encoded value, not to the light: noise added in
+  // linear light is magnified a dozen times in the shadows, and this film is mostly shadow.
+  vec2 px = uv * resolution + fract(time) * 917.0;
+  float n = rnd(px) + rnd(px + 71.7) - 1.0;
+  vec3 enc = pow(max(col, 0.0), vec3(1.0 / 2.2)) + n * uGrain / 255.0;
+  col = pow(max(enc, 0.0), vec3(2.2));
+
+  outputColor = vec4(col, inputColor.a);
 }
 `
 
@@ -50,7 +55,7 @@ class FilmEffect extends Effect {
       blendFunction: BlendFunction.SET,
       uniforms: new Map<string, THREE.Uniform>([
         ['uVignette', new THREE.Uniform(0.62)],
-        ['uGrain', new THREE.Uniform(0.006)],
+        ['uGrain', new THREE.Uniform(1)],
         ['uFringe', new THREE.Uniform(0.012)],
         ['uFade', new THREE.Uniform(1)],
       ]),
@@ -62,6 +67,7 @@ export class Post {
   readonly composer: EffectComposer
   readonly bloom: BloomEffect
   readonly halo: BloomEffect
+  readonly mist: BloomEffect
   readonly tone: ToneMappingEffect
   readonly film: FilmEffect
 
@@ -70,9 +76,10 @@ export class Post {
     this.composer.addPass(new RenderPass(scene, camera))
     this.bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.62, luminanceSmoothing: 0.35, intensity: 0.85, radius: 0.72 })
     this.halo = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.1, luminanceSmoothing: 0.5, intensity: 0.22, radius: 0.98, levels: 9 })
+    this.mist = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0, luminanceSmoothing: 0, intensity: 0.7, radius: 0.35, levels: 4 })
     this.tone = new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC })
     this.film = new FilmEffect()
-    this.composer.addPass(new EffectPass(camera, this.bloom, this.halo))
+    this.composer.addPass(new EffectPass(camera, this.mist, this.bloom, this.halo))
     this.composer.addPass(new EffectPass(camera, this.tone, this.film))
   }
 

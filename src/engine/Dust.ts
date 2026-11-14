@@ -54,6 +54,8 @@ export interface DustLook {
   paintMix: number
   /** 0..1 shimmer */
   twinkle: number
+  /** 1 = pin-sharp points; above, each one is a wider, dimmer disc carrying the same light */
+  soft: number
 }
 
 export function defaultLook(palette: Palette): DustLook {
@@ -71,6 +73,7 @@ export function defaultLook(palette: Palette): DustLook {
     paint: null,
     paintMix: 0,
     twinkle: 0,
+    soft: 1.2,
   }
 }
 
@@ -140,7 +143,7 @@ uniform vec3 uRampA[5];
 uniform vec3 uRampB[5];
 uniform vec4 uToneA;   // tone source, speedNorm, paintMix, twinkle
 uniform vec4 uToneB;
-uniform vec4 uTone2A;  // toneBias, toneScale, minPx, -
+uniform vec4 uTone2A;  // toneBias, toneScale, minPx, soft
 uniform vec4 uTone2B;
 uniform vec4 uShapeA;  // size, gain, streak, opacity
 uniform vec4 uShapeB;
@@ -189,6 +192,7 @@ void main() {
 
   vec4 shape = mix(uShapeA, uShapeB, e);
   float minPx = mix(uTone2A.z, uTone2B.z, e);
+  float soft = mix(uTone2A.w, uTone2B.w, e);
   float twinkle = mix(uToneA.w, uToneB.w, e);
 
   vec3 cA = ramp5(uRampA[0], uRampA[1], uRampA[2], uRampA[3], uRampA[4], toneOf(uToneA, uTone2A, a.w, motion, s));
@@ -225,7 +229,9 @@ void main() {
   vec2 dir = len > 1e-3 ? d / len : vec2(1.0, 0.0);
   len = min(len, uMaxLen);
 
-  float core = max(shape.x * uPx / z, minPx);
+  // softness spreads a particle's light over a wider disc without adding any: neighbours
+  // overlap and a cloud of points reads as one luminous surface instead of sand
+  float core = max(shape.x * uPx / z, minPx) * soft;
   float coc = min(abs(z - uFocus) / z * uAperture * uPx, uMaxCoc);
   float r = sqrt(core * core + coc * coc) * rough;
 
@@ -238,10 +244,10 @@ void main() {
   float area = (core * core) / (r * r);
   float smear = 1.0 / (1.0 + 0.35 * len / r);
   float tw = 1.0 + twinkle * sin(uTime * (1.5 + 5.0 * s) + s * 40.0);
-  // a few grains catch the light: most are dim, one in thirty glints
+  // a few grains catch the light, but only a little: uneven brightness reads as noise
   float s2 = hash12(ref * uSize + 17.31);
-  tw *= 0.6 + 2.6 * pow(s2, 9.0);
-  vColor = color * (shape.y * shape.w * uMaster * fade * pow(area, 0.82) * smear * tw);
+  tw *= 0.8 + 0.65 * pow(s2, 9.0);
+  vColor = color * (shape.y * shape.w * uMaster * fade * pow(area, 0.82) * smear * tw / (soft * soft));
   vLocal = local;
   vLen = len;
   vRadius = r;
@@ -606,7 +612,7 @@ export class Dust {
     const ramp = u[`uRamp${slot}`].value as THREE.Color[]
     for (let i = 0; i < 5; i++) ramp[i].copy(look.palette.ramp[i])
     ;(u[`uTone${slot}`].value as THREE.Vector4).set(TONE_INDEX[look.tone], look.speedNorm, look.paint ? look.paintMix : 0, look.twinkle)
-    ;(u[`uTone2${slot}`].value as THREE.Vector4).set(look.toneBias, look.toneScale, look.minPx * this.renderer.getPixelRatio(), 0)
+    ;(u[`uTone2${slot}`].value as THREE.Vector4).set(look.toneBias, look.toneScale, look.minPx * this.renderer.getPixelRatio(), look.soft)
     ;(u[`uShape${slot}`].value as THREE.Vector4).set(look.size, look.gain, look.streak, look.opacity)
     u[`uPaint${slot}`].value = look.paint ?? this.white
   }
@@ -621,6 +627,7 @@ export class Dust {
       opacity: mix(a.opacity, b.opacity),
       streak: mix(a.streak, b.streak),
       twinkle: mix(a.twinkle, b.twinkle),
+      soft: mix(a.soft, b.soft),
     }
   }
 }

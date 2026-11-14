@@ -15,7 +15,7 @@ export const FLOOR = -1.05
 
 /** fine glowing threads: a strange attractor in full flow */
 export function silk(palette: Palette, speedNorm: number): DustLook {
-  return { ...defaultLook(palette), size: 0.0026, minPx: 0.6, gain: 0.6, streak: 0.15, tone: 'speed', speedNorm }
+  return { ...defaultLook(palette), size: 0.0026, minPx: 0.6, gain: 0.6, streak: 2, soft: 1.55, tone: 'speed', speedNorm }
 }
 
 /** still points of light: lettering, diagrams, anything drawn rather than flowing */

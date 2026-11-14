@@ -58,10 +58,11 @@ const CHROME = arg('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Goo
 const STILLS = Number(arg('stills', '0'))
 const END_CARD = flag('end-card') || WHOLE
 /**
- * Film grain. On a screen the film's per-pixel grain (0.006) hides banding; in a video file it is
- * noise the encoder cannot afford, and a streaming site's second encode turns it to mush.
+ * The dither that keeps dark gradients from banding, in steps of an 8-bit display (the site uses
+ * 1). A video gets half: the encoder pays for every bit of noise, and a streaming site's second
+ * encode turns it to mush. `app` leaves the site's own value.
  */
-const GRAIN = Number(arg('grain', '0.0006'))
+const GRAIN = arg('grain', '0.5')
 /** for clips: scenes played, uncaptured, before the first one that is kept */
 const PREROLL = Number(arg('preroll', '0'))
 
@@ -243,7 +244,7 @@ async function main() {
     if (i > 600) throw new Error('the film did not load')
   }
 
-  await page.run(`window.strangeAttractors.engine.post.film.uniforms.get('uGrain').value = ${GRAIN}`)
+  if (GRAIN !== 'app') await page.run(`window.strangeAttractors.engine.post.film.uniforms.get('uGrain').value = ${Number(GRAIN)}`)
   const keepTitle = WHOLE && TITLE > 0 && first === 0
   const keepTail = TAIL > 0 && (!WHOLE || last === ids.length - 1)
   const reel = new Reel()
