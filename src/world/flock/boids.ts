@@ -188,6 +188,9 @@ export interface Flock {
   readonly nearI: Int32Array
   /** squared gaps from a bird to the cells two either side, per axis */
   readonly gap: Float64Array
+  /** one row's candidates that pass the bound it started with, in scan order */
+  readonly candI: Int32Array
+  readonly candD: Float64Array
 }
 
 export function createFlock(capacity = MAX_BOIDS, seed = 0x9e3779b9): Flock {
@@ -222,6 +225,8 @@ export function createFlock(capacity = MAX_BOIDS, seed = 0x9e3779b9): Flock {
     nearD: new Float64Array(NEIGHBOURS),
     nearI: new Int32Array(NEIGHBOURS),
     gap: new Float64Array(15),
+    candI: new Int32Array(capacity + 1),
+    candD: new Float64Array(capacity + 1),
   }
 }
 
@@ -374,7 +379,7 @@ function bucket(f: Flock) {
  * (dropping any now out of range).
  */
 function findNeighbours(f: Flock, frame: number) {
-  const { n, cellOf, cellStart, order, rank, prevNear, prevCount, sortedPos: sp, nearD, nearI, gap } = f
+  const { n, cellOf, cellStart, order, rank, prevNear, prevCount, sortedPos: sp, nearD, nearI, gap, candI, candD } = f
   const R2 = PERCEPTION * PERCEPTION
   const K = NEIGHBOURS
   for (let j = 0; j < n; j++) {
@@ -424,7 +429,7 @@ function findNeighbours(f: Flock, frame: number) {
         const q3 = rank[prevNear[pk + t]] * 3
         const dx = sp[q3] - px, dy = sp[q3 + 1] - py, dz = sp[q3 + 2] - pz
         const d2 = dx * dx + dy * dy + dz * dz
-        if (d2 > b) b = d2
+        b = Math.max(b, d2)
       }
       b = b * (1 + 1e-7) + 1e-12
       if (b < lim2) lim2 = b
@@ -442,10 +447,22 @@ function findNeighbours(f: Flock, frame: number) {
       const hi = g3 + gyz < lim2 ? (g4 + gyz < lim2 ? 3 : 2) : 1
       const cc = c + ROW_D[r]
       const end = cellStart[cc + hi]
+      // Most candidates fail the bound, at random, and a branch on each one costs more in
+      // mispredictions than the distance itself: first keep the ones under the bound the row
+      // started with, without branching, then test those in the same order against the
+      // shrinking bound. The same birds are tested in the same order, so the result is the same.
+      let found = 0
       for (let q = cellStart[cc + lo]; q < end; q++) {
         const q3 = q * 3
         const dx = sp[q3] - px, dy = sp[q3 + 1] - py, dz = sp[q3 + 2] - pz
         const d2 = dx * dx + dy * dy + dz * dz
+        candI[found] = q
+        candD[found] = d2
+        found += +(d2 < lim2)
+      }
+      for (let x = 0; x < found; x++) {
+        const q = candI[x]
+        const d2 = candD[x]
         if (d2 >= lim2 || q === j) continue
         if (m < K) {
           nearD[m] = d2
@@ -506,7 +523,8 @@ function steer(f: Flock, dt: number, rules: FlockRules) {
         const q3 = rank[prevNear[pk + t]] * 3
         const dx = sp[q3] - px, dy = sp[q3 + 1] - py, dz = sp[q3 + 2] - pz
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz)
-        if (d < nearest) nearest = d
+        // min and max rather than branches: these comparisons go either way at random
+        nearest = Math.min(nearest, d)
         const inv = d > 1e-9 ? 1 / d : 0
         // unit vectors toward the neighbours: their mean says how one-sided the neighbourhood is
         cohX += dx * inv
@@ -515,15 +533,14 @@ function steer(f: Flock, dt: number, rules: FlockRules) {
         aliX += sd[q3]
         aliY += sd[q3 + 1]
         aliZ += sd[q3 + 2]
-        if (d < SEP) {
-          // away from each close flockmate, weighted by closeness (coincident: no direction)
-          const close = 1 - d / SEP
-          const w = close * inv
-          sepX -= dx * w
-          sepY -= dy * w
-          sepZ -= dz * w
-          sepS += close
-        }
+        // away from each close flockmate, weighted by closeness (coincident: no direction);
+        // a flockmate beyond SEPARATION_DISTANCE adds exactly zero
+        const close = Math.max(0, 1 - d / SEP)
+        const w = close * inv
+        sepX -= dx * w
+        sepY -= dy * w
+        sepZ -= dz * w
+        sepS += close
       }
       const invM = 1 / m
       alignSum += (sd[j3] * aliX + sd[j3 + 1] * aliY + sd[j3 + 2] * aliZ) * invM

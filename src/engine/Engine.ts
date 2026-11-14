@@ -10,6 +10,14 @@ import { Dust, defaultLook } from './Dust'
 import { Labels } from './Labels'
 import { PALETTES, type ActId, type Palette } from './palettes'
 import { Post } from './post'
+import { RenderScale } from './renderScale'
+
+/** the most device pixels per CSS pixel the film draws; screens denser than this are upscaled */
+const MAX_DPR = 2
+/** the fewest it comes down to when frames run long */
+const MIN_DPR = 1
+/** the most device pixels in a frame, whatever the ratio */
+const MAX_PIXELS = 6.0e6
 
 export type FrameFn = (dt: number, time: number, realDt: number) => void
 
@@ -46,13 +54,17 @@ export class Engine {
   height = 1
   /** smoothed frames per second */
   fps = 60
+  /**
+   * Device pixels per CSS pixel. Chosen by `scale` as the film plays; when the film is rendered
+   * to video, the renderer sets it and calls `resize()` itself.
+   */
+  dpr = 1
 
   private readonly frameFns = new Set<FrameFn>()
   private raf = 0
   private last = 0
-  private dpr = 1
-  private maxDpr: number
-  private slow = 0
+  /** picks `dpr` from how long frames take; null when the ratio is pinned */
+  private readonly scale: RenderScale | null
   private running = false
   private readonly host: HTMLElement
 
@@ -77,10 +89,18 @@ export class Engine {
     this.renderer.setClearColor(0x000000, 1)
     this.renderer.info.autoReset = true
 
-    // ?dpr=3 lifts the cap, for rendering the film to video at sizes no screen asks for
-    const askedDpr = Number(new URLSearchParams(window.location.search).get('dpr'))
-    this.maxDpr = askedDpr >= 1 && askedDpr <= 4 ? askedDpr : Math.min(window.devicePixelRatio || 1, 2)
-    this.dpr = this.maxDpr
+    // ?dpr=3 lifts the cap, for rendering the film to video at sizes no screen asks for. A pinned
+    // ratio, and any screening in ?cinema mode, never adapts: those frames must come out the same
+    // on every run and every render worker.
+    const query = new URLSearchParams(window.location.search)
+    const askedDpr = Number(query.get('dpr'))
+    const pinned = askedDpr >= 1 && askedDpr <= 4
+    const maxDpr = pinned ? askedDpr : Math.min(window.devicePixelRatio || 1, MAX_DPR)
+    this.scale =
+      pinned || query.has('cinema') || maxDpr <= MIN_DPR
+        ? null
+        : new RenderScale({ max: maxDpr, min: MIN_DPR, maxPixels: MAX_PIXELS }, (host.clientWidth || window.innerWidth) * (host.clientHeight || window.innerHeight))
+    this.dpr = this.scale ? this.scale.scale : maxDpr
     this.size = chooseDustSize()
 
     const palette = PALETTES[0]
@@ -125,10 +145,11 @@ export class Engine {
     const loop = (now: number) => {
       this.raf = requestAnimationFrame(loop)
       if (this.manual) return
-      const real = Math.min(0.05, Math.max(0.0005, (now - this.last) / 1000))
+      const interval = now - this.last
+      const real = Math.min(0.05, Math.max(0.0005, interval / 1000))
       this.last = now
       this.frame(real)
-      this.watchSpeed(real)
+      this.watchSpeed(interval)
     }
     this.raf = requestAnimationFrame(loop)
   }
@@ -148,6 +169,10 @@ export class Engine {
     const h = this.host.clientHeight || window.innerHeight
     this.width = w
     this.height = h
+    if (this.scale) {
+      this.scale.setArea(w * h)
+      this.dpr = this.scale.scale
+    }
     this.renderer.setPixelRatio(this.dpr)
     this.renderer.setSize(w, h, false)
     this.post.setSize(w, h)
@@ -165,18 +190,19 @@ export class Engine {
     this.dust.update(dt, this.time, cam, this.width * this.dpr, this.height * this.dpr)
     this.backdrop.floorY = this.dust.floorY ?? this.backdrop.floorY
     this.backdrop.update(real, this.time, cam)
+    this.backdrop.render(this.renderer)
     this.labels.update(cam, this.width, this.height)
     this.post.render(real)
   }
 
   /** if the machine cannot hold the frame rate, give up resolution before smoothness */
-  private watchSpeed(real: number) {
-    this.fps += (1 / real - this.fps) * 0.05
-    if (document.hidden) return
-    this.slow = this.fps < 44 ? this.slow + real : Math.max(0, this.slow - real * 0.5)
-    if (this.slow > 2.5 && this.dpr > 1) {
-      this.dpr = Math.max(1, this.dpr - 0.25)
-      this.slow = 0
+  private watchSpeed(intervalMs: number) {
+    if (intervalMs > 0) this.fps += (1000 / intervalMs - this.fps) * 0.05
+    // a hidden tab gets no frames, or throttled ones that say nothing about the GPU
+    if (!this.scale || document.hidden) return
+    const next = this.scale.frame(intervalMs)
+    if (next !== null && next !== this.dpr) {
+      this.dpr = next
       this.resize()
     }
   }

@@ -3,6 +3,11 @@
  * glow along the horizon, slow fog drifting through it, and a pool of light on the floor under
  * the subject. It is drawn from the camera's view rays, so it turns with the camera and gives
  * the eye a sense of how big the space is.
+ *
+ * Nothing in it is finer than a hand's width, so it is drawn small (a quarter of the canvas on
+ * each side, a sixteenth of the pixels) into a half-float target and stretched over the screen
+ * with the GPU's bilinear filter. The fog's per-pixel noise was the cost; stretched, the picture
+ * is the same to the eye, and the dither at the end of the post chain still breaks up any bands.
  */
 import * as THREE from 'three'
 import type { Palette } from './palettes'
@@ -81,8 +86,33 @@ void main() {
 }
 `
 
+const stretchFrag = /* glsl */ `
+uniform sampler2D uRoom;
+varying vec2 vNdc;
+void main() {
+  gl_FragColor = texture2D(uRoom, vNdc * 0.5 + 0.5);
+}
+`
+
+/** canvas pixels per side for one pixel of the small room */
+const SHRINK = 4
+
 export class Backdrop {
+  /** what the scene draws: the small room stretched over the screen */
   readonly mesh: THREE.Mesh
+  private readonly room: THREE.Mesh
+  private readonly roomScene = new THREE.Scene()
+  private readonly roomCamera = new THREE.Camera()
+  private readonly target = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+    format: THREE.RGBAFormat,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    depthBuffer: false,
+    stencilBuffer: false,
+    generateMipmaps: false,
+  })
+  private readonly bufferSize = new THREE.Vector2()
   /** 0..1: how much the floor shows */
   floor = 1
   floorY = -1.25
@@ -92,12 +122,12 @@ export class Backdrop {
   private readonly sky = new THREE.Color()
   private readonly horizon = new THREE.Color()
   private readonly fog = new THREE.Color()
-  private target: Palette
+  private palette: Palette
   private floorNow = 1
   private levelNow = 1
 
   constructor(palette: Palette) {
-    this.target = palette
+    this.palette = palette
     this.sky.copy(palette.sky)
     this.horizon.copy(palette.horizon)
     this.fog.copy(palette.fog)
@@ -115,9 +145,22 @@ export class Backdrop {
     }
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3))
-    this.mesh = new THREE.Mesh(
+    this.room = new THREE.Mesh(
       geometry,
       new THREE.ShaderMaterial({ vertexShader: vert, fragmentShader: frag, uniforms: this.uniforms, depthTest: false, depthWrite: false }),
+    )
+    this.room.frustumCulled = false
+    this.roomScene.add(this.room)
+    this.target.texture.colorSpace = THREE.LinearSRGBColorSpace
+    this.mesh = new THREE.Mesh(
+      geometry,
+      new THREE.ShaderMaterial({
+        vertexShader: vert,
+        fragmentShader: stretchFrag,
+        uniforms: { uRoom: { value: this.target.texture } },
+        depthTest: false,
+        depthWrite: false,
+      }),
     )
     this.mesh.frustumCulled = false
     this.mesh.renderOrder = -1000
@@ -125,14 +168,14 @@ export class Backdrop {
 
   /** cross-fade to another act's colours */
   setPalette(palette: Palette) {
-    this.target = palette
+    this.palette = palette
   }
 
   update(dt: number, time: number, camera: THREE.PerspectiveCamera) {
     const k = 1 - Math.exp(-dt * 0.9)
-    this.sky.lerp(this.target.sky, k)
-    this.horizon.lerp(this.target.horizon, k)
-    this.fog.lerp(this.target.fog, k)
+    this.sky.lerp(this.palette.sky, k)
+    this.horizon.lerp(this.palette.horizon, k)
+    this.fog.lerp(this.palette.fog, k)
     const kf = 1 - Math.exp(-dt * 1.6)
     this.floorNow += (this.floor - this.floorNow) * kf
     this.levelNow += (this.level - this.levelNow) * kf
@@ -146,8 +189,23 @@ export class Backdrop {
     u.uLevel.value = this.levelNow
   }
 
+  /** draw the small room; call after `update` and before the scene is rendered */
+  render(renderer: THREE.WebGLRenderer) {
+    if (!this.mesh.visible) return
+    renderer.getDrawingBufferSize(this.bufferSize)
+    const w = Math.max(1, Math.ceil(this.bufferSize.x / SHRINK))
+    const h = Math.max(1, Math.ceil(this.bufferSize.y / SHRINK))
+    if (w !== this.target.width || h !== this.target.height) this.target.setSize(w, h)
+    const before = renderer.getRenderTarget()
+    renderer.setRenderTarget(this.target)
+    renderer.render(this.roomScene, this.roomCamera)
+    renderer.setRenderTarget(before)
+  }
+
   dispose() {
     this.mesh.geometry.dispose()
     ;(this.mesh.material as THREE.Material).dispose()
+    ;(this.room.material as THREE.Material).dispose()
+    this.target.dispose()
   }
 }

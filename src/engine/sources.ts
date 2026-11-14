@@ -72,7 +72,6 @@ export function floatTarget(size: number): THREE.WebGLRenderTarget {
   })
 }
 
-const sharedBlit = new Blit()
 
 /** z-up system coordinates → y-up world: (x, y, z) ↦ (x, z, −y) */
 const Z_UP = new THREE.Matrix4().makeRotationX(-Math.PI / 2)
@@ -104,8 +103,8 @@ export class FlowSource implements DustSource {
   /** when set, starting positions are painted along this act's ramp instead of a colour wheel */
   palette: Palette | null = null
 
-  private readonly renderer: THREE.WebGLRenderer
-  private readonly prev: THREE.WebGLRenderTarget
+  /** the last update moved the particles: last frame's state is the simulation's previous one */
+  private moved = false
   private sys: AttractorSystem
   private P: number[]
   private owed = 0
@@ -113,9 +112,7 @@ export class FlowSource implements DustSource {
   private warpPerFrame = 0
 
   constructor(renderer: THREE.WebGLRenderer, size: number, id: SystemId = 'lorenz', params?: number[]) {
-    this.renderer = renderer
     this.sim = new SwarmSim(renderer, size)
-    this.prev = floatTarget(size)
     this.paint = new THREE.DataTexture(new Float32Array(size * size * 4), size, size, THREE.RGBAFormat, THREE.FloatType)
     this.sys = getSystem(id)
     this.P = params ? params.slice() : defaultParams(this.sys)
@@ -129,7 +126,8 @@ export class FlowSource implements DustSource {
   }
 
   get prevTexture() {
-    return this.prev.texture
+    // standing still, last frame is this frame, so nothing streaks
+    return this.moved ? this.sim.previousTexture : this.sim.texture
   }
 
   get system(): AttractorSystem {
@@ -183,7 +181,6 @@ export class FlowSource implements DustSource {
   }
 
   update(dt: number, time: number) {
-    sharedBlit.copy(this.renderer, this.sim.texture, this.prev)
     let steps = 0
     if (!this.paused) {
       this.owed += (dt * this.sys.rate * this.speed) / this.sys.dt
@@ -196,8 +193,9 @@ export class FlowSource implements DustSource {
       this.warpSteps -= burst
       steps += burst
     }
+    this.moved = steps > 0
     if (steps > 0) {
-      this.sim.step(this.sys.dt, steps, time)
+      this.sim.advance(this.sys.dt, steps, time)
       this.simTime += steps * this.sys.dt
     }
   }
@@ -229,7 +227,6 @@ export class FlowSource implements DustSource {
 
   dispose() {
     this.sim.dispose()
-    this.prev.dispose()
     this.paint.dispose()
   }
 
@@ -244,7 +241,7 @@ export class FlowSource implements DustSource {
   private afterSpawn() {
     this.simTime = 0
     this.owed = 0
-    sharedBlit.copy(this.renderer, this.sim.texture, this.prev)
+    this.moved = false
     this.repaint()
   }
 }

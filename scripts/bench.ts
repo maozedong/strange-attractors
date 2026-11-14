@@ -12,6 +12,10 @@
  * each frame, which does not return until everything drawn so far is done. No vsync, no screen:
  * the numbers are the cost of the work, not what a display would show.
  *
+ * A laptop GPU slows its clock when it has little to do, and waiting after every frame leaves it
+ * idle most of the time, so a light frame reads slower than it is. `--burst 8` draws eight frames
+ * back to back and waits once: the time per frame then is what the GPU needs when kept busy.
+ *
  * Only one of these runs at a time on a machine (scripts/gpuLock.ts), because two sharing a GPU
  * would time each other.
  */
@@ -45,6 +49,8 @@ const EVAL = arg('eval', '')
 const QUERY = arg('query', '')
 const JSON_OUT = arg('json', '')
 const LABEL = arg('label', '')
+/** frames drawn back to back before each wait for the GPU; see the header */
+const BURST = Number(arg('burst', '1'))
 const CHROME = arg('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -71,19 +77,25 @@ async function run(expression: string): Promise<unknown> {
 /** in the page before anything else: the real clock, and the timing loop */
 const PRELUDE = `
 window.__realNow = performance.now.bind(performance)
-window.__bench = async (dt, frames) => {
+window.__bench = async (dt, frames, burst = 1) => {
   const gl = window.strangeAttractors.engine.renderer.getContext()
   const px = new Uint8Array(4)
   const script = [], total = []
   for (let i = 0; i < frames; i++) {
     const a = window.__realNow()
-    const done = window.__cap.pump(dt)   // the frame is drawn before this returns its promise
-    const b = window.__realNow()
+    let own = 0
+    let done
+    for (let k = 0; k < burst; k++) {
+      if (done) await done
+      const t = window.__realNow()
+      done = window.__cap.pump(dt)   // the frame is drawn before this returns its promise
+      own += window.__realNow() - t
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px)
     const c = window.__realNow()
-    script.push(b - a)
-    total.push(c - a)
+    script.push(own / burst)
+    total.push((c - a) / burst)
     await done
   }
   const info = window.strangeAttractors.engine.renderer.info
@@ -175,8 +187,8 @@ async function main() {
       if (r.status === 'ended') break
     }
     if (EVAL) await run(EVAL)
-    await run(`window.__bench(${dt}, 12)`)
-    const r = JSON.parse(String(await run(`window.__bench(${dt}, ${FRAMES})`))) as { script: number[]; total: number[]; calls: number; triangles: number }
+    await run(`window.__bench(${dt}, 12, ${BURST})`)
+    const r = JSON.parse(String(await run(`window.__bench(${dt}, ${Math.max(8, Math.round(FRAMES / BURST))}, ${BURST})`))) as { script: number[]; total: number[]; calls: number; triangles: number }
     const row: Row = { scene: shot.id, t: shot.t, ms: median(r.total), p90: quantile(r.total, 0.9), script: median(r.script), calls: r.calls, triangles: r.triangles }
     rows.push(row)
     console.log(`${row.scene.padEnd(13)} ${row.ms.toFixed(2).padStart(8)} ${row.p90.toFixed(2).padStart(6)} ${row.script.toFixed(2).padStart(7)} ${(1000 / row.ms).toFixed(0).padStart(5)}`)

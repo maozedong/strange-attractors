@@ -51,6 +51,8 @@ export class SwarmSim {
   private readonly renderer: THREE.WebGLRenderer
   private read: THREE.WebGLRenderTarget
   private write: THREE.WebGLRenderTarget
+  /** the state before the last advance(): a third target, so remembering it costs no copy */
+  private before: THREE.WebGLRenderTarget
 
   private readonly scene = new THREE.Scene()
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -137,8 +139,10 @@ export class SwarmSim {
     }
     this.read = new THREE.WebGLRenderTarget(size, size, targetOptions)
     this.write = new THREE.WebGLRenderTarget(size, size, targetOptions)
+    this.before = new THREE.WebGLRenderTarget(size, size, targetOptions)
     this.read.texture.name = 'SwarmSim.stateA'
     this.write.texture.name = 'SwarmSim.stateB'
+    this.before.texture.name = 'SwarmSim.stateC'
 
     this.uploadData = new Float32Array(this.count * 4)
     this.upload = new THREE.DataTexture(this.uploadData, size, size, THREE.RGBAFormat, THREE.FloatType)
@@ -178,6 +182,11 @@ export class SwarmSim {
   /** Latest particle state: vec4(x, y, z, speed) per texel, system units. */
   get texture(): THREE.Texture {
     return this.read.texture
+  }
+
+  /** the state as it was before the last advance() (until something else rewrites it) */
+  get previousTexture(): THREE.Texture {
+    return this.before.texture
   }
 
   /** Select the system by catalog index (must match SYSTEMS[index]) and apply its params. */
@@ -221,6 +230,33 @@ export class SwarmSim {
       u.uTime.value = seed + i * SUBSTEP_SEED
       this.pass(this.stepMaterial, this.write)
       this.swap()
+    }
+    this.end()
+  }
+
+  /**
+   * step(), keeping the state it started from as `previousTexture`. The first pass writes
+   * into the spare target and leaves the starting state where it was; the rest ping-pong
+   * between the other two.
+   */
+  advance(dt: number, steps: number, time: number): void {
+    if (steps <= 0 || this.disposed) return
+    const u = this.stepUniforms
+    u.uDt.value = dt
+    const seed = time % SEED_WRAP
+    this.begin()
+    for (let i = 0; i < steps; i++) {
+      u.uState.value = this.read.texture
+      u.uTime.value = seed + i * SUBSTEP_SEED
+      this.pass(this.stepMaterial, this.write)
+      if (i === 0) {
+        const spare = this.before
+        this.before = this.read
+        this.read = this.write
+        this.write = spare
+      } else {
+        this.swap()
+      }
     }
     this.end()
   }
@@ -322,6 +358,7 @@ export class SwarmSim {
     this.disposed = true
     this.read.dispose()
     this.write.dispose()
+    this.before.dispose()
     this.upload.dispose()
     this.stepMaterial.dispose()
     this.initMaterial.dispose()

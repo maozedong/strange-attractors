@@ -5,7 +5,7 @@
  * consonants and breath draw tangles. At the end the visitor can lend it their own voice.
  */
 import { plate as namePlate, readout } from './kit/hud'
-import { PointsSource } from '../engine/sources'
+import { dataTexture, SpreadSource } from './kit/SpreadSource'
 import { at, easeInOut, type SceneFactory } from '../film/types'
 import { sound } from '../sound/audio'
 import { AMP_FLOOR, POINTS, QUIET_LEVEL, VoiceAnalysis, VoiceCurve } from '../world/voice/analysis'
@@ -28,6 +28,66 @@ const LOUD = Math.max(0.2, QUIET_LEVEL * 6)
 const SPREAD = 0.3
 
 type Source = 'narration' | 'mic' | 'tone'
+
+/** the samples' texture is SAMPLE_W wide: rows 0..SAMPLE_ROWS−1 hold (embedded xyz, flat
+ *  height), the rows after them the brightness */
+const SAMPLE_W = 128
+const SAMPLE_ROWS = Math.ceil(POINTS / SAMPLE_W)
+
+/**
+ * Every particle rides one sample of the stretch just heard, a fraction of the way to the next.
+ * The CPU keeps the few thousand samples; this places the quarter of a million particles on
+ * them, so a frame uploads the samples instead of every particle's position.
+ */
+const frag = /* glsl */ `
+uniform sampler2D uSamples;
+/** per particle: where along its segment it sits, and its jitter */
+uniform sampler2D uSeed;
+uniform int uN;
+/** the newest sample's absolute index, modulo uN */
+uniform int uNewest;
+uniform float uFold;
+uniform float uGlow;
+uniform float uFlatW;
+uniform float uRest;
+
+vec4 sampleAt(int k) {
+  return texelFetch(uSamples, ivec2(k % ${SAMPLE_W}, k / ${SAMPLE_W}), 0);
+}
+float brightAt(int k) {
+  return texelFetch(uSamples, ivec2(k % ${SAMPLE_W}, ${SAMPLE_ROWS} + k / ${SAMPLE_W}), 0).x;
+}
+
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 seed = texelFetch(uSeed, c, 0);
+  float f = seed.x;
+  vec3 jit = seed.yzw;
+  if (uRest > 0.0) {
+    // before anything is heard: a scope's resting line
+    gl_FragColor = vec4((f - 0.5) * uFlatW, jit.y * 0.5, jit.z, 0.22 * (1.0 - abs(f - 0.5) * 1.6));
+    return;
+  }
+  // the sample this particle rides: the newest one whose index matches its own, modulo n
+  int p = c.y * int(uSize) + c.x;
+  int age = (uNewest - p % uN + uN) % uN;
+  int k = uN - 1 - age;
+  if (k == 0) k = 1;
+  int k0 = k - 1;
+  float w = uFlatW / float(uN - 1);
+  float fx0 = (float(k0) - float(uN - 1) / 2.0) * w;
+  float fx1 = fx0 + w;
+  vec4 a = sampleAt(k0);
+  vec4 b = sampleAt(k);
+  float x = fx0 + (fx1 - fx0) * f;
+  float y = a.w + (b.w - a.w) * f;
+  vec3 e = a.xyz + (b.xyz - a.xyz) * f;
+  float u = uFold;
+  float bk0 = brightAt(k0);
+  float bright = bk0 + (brightAt(k) - bk0) * f;
+  gl_FragColor = vec4(x + (e.x - x) * u + jit.x, y + (e.y - y) * u + jit.y, e.z * u + jit.z, bright * uGlow);
+}
+`
 
 /** the synthesized vowel (dsp.ts TONE) as a Web Audio graph, into `out` and the analyser */
 class Tone {
@@ -204,10 +264,8 @@ class Ear {
 }
 
 const voice: SceneFactory = (ctx) => {
-  const { engine, dust, rig, palette, size } = ctx
-  const src = new PointsSource(size)
-  src.matrix.makeTranslation(0, CY, 0)
-  const count = src.count
+  const { engine, dust, rig, palette, size, renderer } = ctx
+  const count = size * size
 
   let source: Source = 'narration'
   let delayMs = 1.6
@@ -218,8 +276,7 @@ const voice: SceneFactory = (ctx) => {
   const flatW = () => (ctx.portrait ? FLAT_W * 0.5 : FLAT_W)
 
   // per particle: where along its segment it sits, and a hair of jitter
-  const frac = new Float32Array(count)
-  const jit = new Float32Array(count * 3)
+  const seedData = new Float32Array(count * 4)
   {
     let s = 0x9e3779b9
     const r = () => {
@@ -229,12 +286,26 @@ const voice: SceneFactory = (ctx) => {
       return (s >>> 0) / 4294967296
     }
     for (let i = 0; i < count; i++) {
-      frac[i] = r()
-      jit[i * 3] = (r() - 0.5) * 0.006
-      jit[i * 3 + 1] = (r() - 0.5) * 0.006
-      jit[i * 3 + 2] = (r() - 0.5) * 0.006
+      seedData[i * 4] = r()
+      seedData[i * 4 + 1] = (r() - 0.5) * 0.006
+      seedData[i * 4 + 2] = (r() - 0.5) * 0.006
+      seedData[i * 4 + 3] = (r() - 0.5) * 0.006
     }
   }
+  const seedTex = dataTexture(size, size, seedData)
+  const sampleData = new Float32Array(SAMPLE_W * SAMPLE_ROWS * 2 * 4)
+  const sampleTex = dataTexture(SAMPLE_W, SAMPLE_ROWS * 2, sampleData)
+  const src = new SpreadSource(renderer, size, frag, {
+    uSamples: { value: sampleTex },
+    uSeed: { value: seedTex },
+    uN: { value: 2 },
+    uNewest: { value: 0 },
+    uFold: { value: 0 },
+    uGlow: { value: 0 },
+    uFlatW: { value: FLAT_W },
+    uRest: { value: 1 },
+  })
+  src.matrix.makeTranslation(0, CY, 0)
 
   // the last heard stretch: flat height, embedded point and brightness per sample, oldest first
   const flatY = new Float32Array(POINTS)
@@ -286,15 +357,9 @@ const voice: SceneFactory = (ctx) => {
 
   /** before anything is heard: a scope's resting line */
   const rest = () => {
-    const d = src.data
-    for (let i = 0; i < count; i++) {
-      const o = i * 4
-      d[o] = (frac[i] - 0.5) * flatW()
-      d[o + 1] = jit[i * 3 + 1] * 0.5
-      d[o + 2] = jit[i * 3 + 2]
-      d[o + 3] = 0.22 * (1 - Math.abs(frac[i] - 0.5) * 1.6)
-    }
-    src.commit()
+    src.uniforms.uRest.value = 1
+    src.uniforms.uFlatW.value = flatW()
+    src.render(engine.time)
   }
 
   /** the stretch just heard, from the analysis into our own arrays */
@@ -320,6 +385,7 @@ const voice: SceneFactory = (ctx) => {
     const b = curve.brightness
     const seg = curve.segment
     for (let i = 0; i < m; i++) bright[i] = b[i] * (i < m - 1 ? seg[i] : 1)
+    samplesDirty = true
     // keep the clearest recent vowel
     const score = a.pitch > 0 ? a.clarity * (1 - a.roughness) : 0
     keptAge += 1
@@ -335,36 +401,32 @@ const voice: SceneFactory = (ctx) => {
     return true
   }
 
+  /** what changed since the last draw: the samples, or only the fold and the glow */
+  let samplesDirty = true
   const draw = () => {
     if (n < 2) return
-    const d = src.data
-    const u = fold
-    const w = flatW() / (n - 1)
-    const glow = hold
-    for (let p = 0; p < count; p++) {
-      // the sample this particle rides: the newest one whose index matches its own, modulo n
-      const age = (((newest - p) % n) + n) % n
-      let k = n - 1 - age
-      if (k === 0) k = 1
-      const f = frac[p]
-      const k0 = k - 1
-      const fx0 = (k0 - (n - 1) / 2) * w
-      const fx1 = fx0 + w
-      const x = fx0 + (fx1 - fx0) * f
-      const y = flatY[k0] + (flatY[k] - flatY[k0]) * f
-      const e0 = k0 * 3
-      const e1 = k * 3
-      const ex = emb[e0] + (emb[e1] - emb[e0]) * f
-      const ey = emb[e0 + 1] + (emb[e1 + 1] - emb[e0 + 1]) * f
-      const ez = emb[e0 + 2] + (emb[e1 + 2] - emb[e0 + 2]) * f
-      const o = p * 4
-      const j = p * 3
-      d[o] = x + (ex - x) * u + jit[j]
-      d[o + 1] = y + (ey - y) * u + jit[j + 1]
-      d[o + 2] = ez * u + jit[j + 2]
-      d[o + 3] = (bright[k0] + (bright[k] - bright[k0]) * f) * glow
+    if (samplesDirty) {
+      const d = sampleData
+      const bo = SAMPLE_W * SAMPLE_ROWS * 4
+      for (let k = 0; k < n; k++) {
+        const o = k * 4
+        d[o] = emb[k * 3]
+        d[o + 1] = emb[k * 3 + 1]
+        d[o + 2] = emb[k * 3 + 2]
+        d[o + 3] = flatY[k]
+        d[bo + o] = bright[k]
+      }
+      sampleTex.needsUpdate = true
+      samplesDirty = false
     }
-    src.commit()
+    const u = src.uniforms
+    u.uRest.value = 0
+    u.uN.value = n
+    u.uNewest.value = newest % n
+    u.uFold.value = fold
+    u.uGlow.value = hold
+    u.uFlatW.value = flatW()
+    src.render(engine.time)
   }
 
   const setSource = (s: Source) => {
@@ -428,6 +490,7 @@ const voice: SceneFactory = (ctx) => {
         bright.set(vBright.subarray(0, vn))
         n = vn
         newest = vNewest
+        samplesDirty = true
         kept = true
         hold = 0.9
         draw()
@@ -487,6 +550,8 @@ const voice: SceneFactory = (ctx) => {
       keyOff?.()
       ear?.dispose()
       src.dispose()
+      seedTex.dispose()
+      sampleTex.dispose()
     },
 
     lab: [
